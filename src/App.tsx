@@ -601,13 +601,33 @@ const Flow = () => {
     }
   };
 
-  const deleteSelected = () => {
+  const deleteSelected = useCallback(() => {
     if (selectedNode) {
       setNodes((nds) => nds.filter((n) => n.id !== selectedNode.id));
       setEdges((eds) => eds.filter((e) => e.source !== selectedNode.id && e.target !== selectedNode.id));
       setSelectedNode(null);
     }
-  };
+  }, [selectedNode, setNodes, setEdges]);
+
+  // Keyboard support for deletion
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Don't delete if user is typing in an input or textarea
+      const isInput = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement;
+      if (isInput) return;
+
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        if (selectedNode) {
+          deleteSelected();
+        } else if (selectedEdge) {
+          deleteEdge();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedNode, selectedEdge, deleteSelected, deleteEdge]);
 
   return (
     <div className="flex-1 h-full flex relative" ref={reactFlowWrapper}>
