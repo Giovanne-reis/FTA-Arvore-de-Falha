@@ -5,11 +5,18 @@ import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
  * Tries a Pro model first, then falls back to Flash if quota is reached.
  */
 async function generateContentWithFallback(params: any): Promise<GenerateContentResponse> {
-  // Use process.env.API_KEY (from user selection) or fallback to system key
-  const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
+  // Priority: 
+  // 1. User provided key in localStorage (if we add that)
+  // 2. VITE_GEMINI_API_KEY (for Vercel/Production)
+  // 3. process.env.GEMINI_API_KEY (for AI Studio/Local)
+  
+  const apiKey = 
+    localStorage.getItem('custom_gemini_api_key') || 
+    (import.meta as any).env.VITE_GEMINI_API_KEY || 
+    (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : undefined);
   
   if (!apiKey) {
-    throw new Error("Gemini API Key not found. Please connect your Google account or check environment variables.");
+    throw new Error("Chave API do Gemini não encontrada. Configure VITE_GEMINI_API_KEY no Vercel ou insira uma chave nas configurações.");
   }
 
   const ai = new GoogleGenAI({ apiKey });

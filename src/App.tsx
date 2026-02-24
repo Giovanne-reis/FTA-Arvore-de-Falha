@@ -83,25 +83,17 @@ const defaultEdgeOptions = {
 };
 
 const Sidebar = () => {
-  const [hasApiKey, setHasApiKey] = useState(false);
+  const [customKey, setCustomKey] = useState(localStorage.getItem('custom_gemini_api_key') || '');
+  const [showKeyInput, setShowKeyInput] = useState(false);
 
-  useEffect(() => {
-    const checkApiKey = async () => {
-      if (window.aistudio) {
-        const hasKey = await window.aistudio.hasSelectedApiKey();
-        setHasApiKey(hasKey);
-      }
-    };
-    checkApiKey();
-    // Check periodically or on focus might be overkill, but let's do it once on mount
-  }, []);
-
-  const handleConnectKey = async () => {
-    if (window.aistudio) {
-      await window.aistudio.openSelectKey();
-      // Assume success as per guidelines
-      setHasApiKey(true);
+  const handleSaveKey = () => {
+    if (customKey) {
+      localStorage.setItem('custom_gemini_api_key', customKey);
+    } else {
+      localStorage.removeItem('custom_gemini_api_key');
     }
+    setShowKeyInput(false);
+    window.location.reload(); // Reload to apply new key
   };
 
   const onDragStart = (event: React.DragEvent, nodeType: string) => {
@@ -229,35 +221,49 @@ const Sidebar = () => {
       </div>
 
       <div className="mt-auto pt-6 border-t border-zinc-200 space-y-4">
-        <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
-          <h4 className="text-emerald-700 text-xs font-bold mb-2 flex items-center gap-2">
-            <Zap className="w-3 h-3" /> Conta Google
-          </h4>
-          <p className="text-emerald-600 text-[11px] leading-relaxed mb-3">
-            {hasApiKey 
-              ? "Sua conta Google está conectada e pronta para usar o Gemini Pro." 
-              : "Conecte sua conta Google para usar sua própria chave de API do Gemini e evitar limites de cota."}
-          </p>
-          <button
-            onClick={handleConnectKey}
-            className={cn(
-              "w-full py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2",
-              hasApiKey 
-                ? "bg-emerald-600 text-white hover:bg-emerald-700" 
-                : "bg-white text-emerald-700 border border-emerald-200 hover:bg-emerald-50 shadow-sm"
-            )}
-          >
-            {hasApiKey ? "Alterar Conta / Chave" : "Conectar Conta Google"}
-          </button>
-          {!hasApiKey && (
-            <a 
-              href="https://ai.google.dev/gemini-api/docs/billing" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="block mt-2 text-[10px] text-emerald-500 hover:underline text-center"
+        <div className="bg-zinc-100 p-4 rounded-xl border border-zinc-200">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-zinc-600 text-xs font-bold flex items-center gap-2">
+              <Zap className="w-3 h-3 text-amber-500" /> Inteligência Artificial
+            </h4>
+            <button 
+              onClick={() => setShowKeyInput(!showKeyInput)}
+              className="text-zinc-400 hover:text-zinc-600"
             >
-              Saiba mais sobre faturamento
-            </a>
+              <Settings2 className="w-3 h-3" />
+            </button>
+          </div>
+          
+          {showKeyInput ? (
+            <div className="space-y-2">
+              <input 
+                type="password"
+                placeholder="Insira sua Gemini API Key..."
+                className="w-full p-2 text-[10px] border border-zinc-300 rounded bg-white"
+                value={customKey}
+                onChange={(e) => setCustomKey(e.target.value)}
+              />
+              <div className="flex gap-2">
+                <button 
+                  onClick={handleSaveKey}
+                  className="flex-1 bg-zinc-800 text-white text-[10px] py-1 rounded hover:bg-zinc-700 font-bold"
+                >
+                  Salvar
+                </button>
+                <button 
+                  onClick={() => setShowKeyInput(false)}
+                  className="flex-1 bg-zinc-200 text-zinc-600 text-[10px] py-1 rounded hover:bg-zinc-300"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          ) : (
+            <p className="text-zinc-500 text-[10px] leading-relaxed">
+              {customKey 
+                ? "Usando sua chave de API personalizada." 
+                : "Usando a chave de API padrão do sistema (Gratuita)."}
+            </p>
           )}
         </div>
 
