@@ -1,0 +1,5 @@
+{
+  "name": "Analisador de Árvore de Falhas (FTA)",
+  "description": "Uma ferramenta profissional para criação de Árvores de Falhas para manutenção de equipamentos, seguindo padrões industriais de cores e simbologia.",
+  "requestFramePermissions": []
+}
