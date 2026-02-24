@@ -294,6 +294,7 @@ const Flow = () => {
   const [showGrid, setShowGrid] = useState(true);
   const [addChildMenu, setAddChildMenu] = useState<{ parentId: string, x: number, y: number } | null>(null);
   const [expandedSuggestionIdx, setExpandedSuggestionIdx] = useState<number | null>(null);
+  const [canFetchSuggestions, setCanFetchSuggestions] = useState(false);
 
   const addChildNode = useCallback((parentId: string, type: string, label?: string) => {
     const parentNode = getNodes().find((n) => n.id === parentId);
@@ -419,9 +420,9 @@ const Flow = () => {
     );
   }, [onOpenAddChildMenu, nodes.length]); // Only re-run when nodes count changes to avoid infinite loop
 
-  // Fetch dynamic suggestions when a node is selected
+  // Fetch dynamic suggestions when a node is selected and user confirms
   useEffect(() => {
-    if (selectedNode && selectedNode.data.label && !selectedNode.type?.includes('Gate')) {
+    if (canFetchSuggestions && selectedNode && selectedNode.data.label && !selectedNode.type?.includes('Gate')) {
       setIsLoadingSuggestions(true);
       getFTASuggestions(selectedNode.data.label as string, selectedNode.type as string)
         .then(suggestions => {
@@ -431,7 +432,13 @@ const Flow = () => {
     } else {
       setDynamicSuggestions([]);
     }
-  }, [selectedNode]);
+  }, [canFetchSuggestions, selectedNode]);
+
+  // Reset confirmation when selection changes
+  useEffect(() => {
+    setCanFetchSuggestions(false);
+    setDynamicSuggestions([]);
+  }, [selectedNode?.id]);
 
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge({ ...params, type: 'step' }, eds)),
@@ -814,7 +821,21 @@ const Flow = () => {
 
             <div className="space-y-4">
               <h3 className="text-zinc-400 text-[10px] font-bold uppercase tracking-widest">Causas Prováveis:</h3>
-              {isLoadingSuggestions ? (
+              
+              {!canFetchSuggestions ? (
+                <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl text-center space-y-3">
+                  <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center mx-auto">
+                    <Lightbulb className="w-5 h-5 text-emerald-600" />
+                  </div>
+                  <p className="text-xs text-emerald-800 font-medium">Deseja gerar sugestões inteligentes para este nó?</p>
+                  <button
+                    onClick={() => setCanFetchSuggestions(true)}
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-lg text-xs font-bold transition-all shadow-sm"
+                  >
+                    Gerar Sugestões
+                  </button>
+                </div>
+              ) : isLoadingSuggestions ? (
                 <div className="space-y-2">
                   {[1, 2, 3].map(i => (
                     <div key={i} className="h-24 bg-zinc-200 animate-pulse rounded-xl" />
