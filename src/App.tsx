@@ -474,41 +474,56 @@ const Flow = () => {
   }, [onOpenAddChildMenu, nodes.length]); // Only re-run when nodes count changes to avoid infinite loop
 
   // Fetch dynamic suggestions when a node is selected and user confirms
+  const fetchSuggestions = useCallback(async () => {
+    if (!selectedNode || !selectedNode.data.label || selectedNode.type?.includes('Gate')) return;
+    
+    const label = selectedNode.data.label as string;
+    
+    // Check if we already have this in history
+    const cached = suggestionHistory.find(h => h.label === label);
+    if (cached) {
+      setDynamicSuggestions(cached.suggestions);
+      setCanFetchSuggestions(true);
+      return;
+    }
+
+    setIsLoadingSuggestions(true);
+    setCanFetchSuggestions(true);
+    
+    try {
+      const suggestions = await getFTASuggestions(label, selectedNode.type as string);
+      setDynamicSuggestions(suggestions);
+      // Add to history if not empty
+      if (suggestions.length > 0) {
+        setSuggestionHistory(prev => {
+          const newHistory = [{ label, suggestions }, ...prev.filter(h => h.label !== label)];
+          return newHistory.slice(0, 10);
+        });
+      }
+    } catch (error) {
+      console.error("Failed to fetch suggestions", error);
+    } finally {
+      setIsLoadingSuggestions(false);
+    }
+  }, [selectedNode, suggestionHistory]);
+
+  // Auto-load from history when selection changes
   useEffect(() => {
-    if (canFetchSuggestions && selectedNode && selectedNode.data.label && !selectedNode.type?.includes('Gate')) {
+    if (selectedNode && selectedNode.data.label) {
       const label = selectedNode.data.label as string;
-      
-      // Check if we already have this in history
       const cached = suggestionHistory.find(h => h.label === label);
       if (cached) {
         setDynamicSuggestions(cached.suggestions);
-        setIsLoadingSuggestions(false);
-        return;
+        setCanFetchSuggestions(true);
+      } else {
+        setDynamicSuggestions([]);
+        setCanFetchSuggestions(false);
       }
-
-      setIsLoadingSuggestions(true);
-      getFTASuggestions(label, selectedNode.type as string)
-        .then(suggestions => {
-          setDynamicSuggestions(suggestions);
-          setIsLoadingSuggestions(false);
-          // Add to history if not empty
-          if (suggestions.length > 0) {
-            setSuggestionHistory(prev => {
-              // Keep only last 10 items
-              const newHistory = [{ label, suggestions }, ...prev.filter(h => h.label !== label)];
-              return newHistory.slice(0, 10);
-            });
-          }
-        });
     } else {
       setDynamicSuggestions([]);
+      setCanFetchSuggestions(false);
     }
-  }, [canFetchSuggestions, selectedNode]);
-
-  // Reset confirmation when selection changes
-  useEffect(() => {
-    setCanFetchSuggestions(false);
-    setDynamicSuggestions([]);
+    setExpandedSuggestionIdx(null);
   }, [selectedNode?.id]);
 
   const onConnect = useCallback(
@@ -920,7 +935,7 @@ const Flow = () => {
                   </div>
                   <p className="text-xs text-emerald-800 font-medium">Deseja gerar sugestões inteligentes para este nó?</p>
                   <button
-                    onClick={() => setCanFetchSuggestions(true)}
+                    onClick={fetchSuggestions}
                     className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-lg text-xs font-bold transition-all shadow-sm"
                   >
                     Gerar Sugestões
@@ -928,7 +943,7 @@ const Flow = () => {
                 </div>
               ) : isLoadingSuggestions ? (
                 <div className="space-y-2">
-                  {[1, 2, 3].map(i => (
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
                     <div key={i} className="h-24 bg-zinc-200 animate-pulse rounded-xl" />
                   ))}
                 </div>
@@ -1024,14 +1039,13 @@ const Flow = () => {
                 <button
                   key={idx}
                   onClick={() => {
-                    // If the same node is selected, just show the suggestions
+                    // Only allow clicking if it matches current selection to avoid confusion
+                    // or if no node is selected, we could potentially select one, but let's keep it simple
                     if (selectedNode && selectedNode.data.label === item.label) {
-                      setCanFetchSuggestions(true);
                       setDynamicSuggestions(item.suggestions);
+                      setCanFetchSuggestions(true);
                     } else {
-                      // If different node, we'd need to find it or just show the label
-                      // For now, let's just allow clicking if it matches current selection
-                      // Or better: allow clicking to see what was suggested for that label
+                      // If different node, just show the suggestions but don't "link" them to the current node's fetch state
                       setDynamicSuggestions(item.suggestions);
                       setCanFetchSuggestions(true);
                     }

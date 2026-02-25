@@ -85,7 +85,7 @@ async function generateOpenAIContent(prompt: string): Promise<string[]> {
 export async function getFTASuggestions(nodeLabel: string, nodeType: string): Promise<string[]> {
   const provider = (localStorage.getItem('active_ai_provider') as AIProvider) || 'gemini';
   const prompt = `Analise o seguinte evento em uma Árvore de Falhas (FTA) de equipamentos: "${nodeLabel}" (Tipo: ${nodeType}). 
-  Sugira 5 causas prováveis ou sub-eventos que poderiam estar abaixo deste nó na hierarquia.
+  Sugira 8 causas prováveis ou sub-eventos que poderiam estar abaixo deste nó na hierarquia.
   As sugestões devem ser curtas (máximo 5 palavras), técnicas e em Português.
   Retorne no formato JSON: { "suggestions": ["causa 1", "causa 2", ...] }`;
 
