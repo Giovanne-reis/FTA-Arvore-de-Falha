@@ -42,7 +42,8 @@ import {
   X,
   Grid,
   Save,
-  FolderOpen
+  FolderOpen,
+  History
 } from 'lucide-react';
 
 import { 
@@ -61,7 +62,7 @@ import {
 } from './components/FTANodes';
 import { COMMON_EQUIPMENT_FAILURES } from './constants/suggestions';
 
-import { getFTASuggestions } from './services/geminiService';
+import { getFTASuggestions, getLocalUsage, AIProvider } from './services/geminiService';
 
 const nodeTypes = {
   topEvent: TopEventNode,
@@ -83,18 +84,26 @@ const defaultEdgeOptions = {
 };
 
 const Sidebar = () => {
-  const [customKey, setCustomKey] = useState(localStorage.getItem('custom_gemini_api_key') || '');
+  const [geminiKey, setGeminiKey] = useState(localStorage.getItem('custom_gemini_api_key') || '');
+  const [openaiKey, setOpenaiKey] = useState(localStorage.getItem('custom_openai_api_key') || '');
+  const [activeProvider, setActiveProvider] = useState<AIProvider>((localStorage.getItem('active_ai_provider') as AIProvider) || 'gemini');
   const [showKeyInput, setShowKeyInput] = useState(false);
+  const [usage, setUsage] = useState(getLocalUsage());
 
-  const handleSaveKey = () => {
-    if (customKey) {
-      localStorage.setItem('custom_gemini_api_key', customKey);
-    } else {
-      localStorage.removeItem('custom_gemini_api_key');
-    }
+  const handleSaveKeys = () => {
+    localStorage.setItem('custom_gemini_api_key', geminiKey);
+    localStorage.setItem('custom_openai_api_key', openaiKey);
+    localStorage.setItem('active_ai_provider', activeProvider);
     setShowKeyInput(false);
-    window.location.reload(); // Reload to apply new key
+    window.location.reload(); // Reload to apply new settings
   };
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setUsage(getLocalUsage());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const onDragStart = (event: React.DragEvent, nodeType: string) => {
     event.dataTransfer.setData('application/reactflow', nodeType);
@@ -235,35 +244,78 @@ const Sidebar = () => {
           </div>
           
           {showKeyInput ? (
-            <div className="space-y-2">
-              <input 
-                type="password"
-                placeholder="Insira sua Gemini API Key..."
-                className="w-full p-2 text-[10px] border border-zinc-300 rounded bg-white"
-                value={customKey}
-                onChange={(e) => setCustomKey(e.target.value)}
-              />
-              <div className="flex gap-2">
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-zinc-400 uppercase">Provedor Ativo</label>
+                <select 
+                  className="w-full p-1.5 text-[10px] border border-zinc-300 rounded bg-white"
+                  value={activeProvider}
+                  onChange={(e) => setActiveProvider(e.target.value as AIProvider)}
+                >
+                  <option value="gemini">Google Gemini</option>
+                  <option value="openai">OpenAI ChatGPT</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-zinc-400 uppercase">Gemini API Key</label>
+                <input 
+                  type="password"
+                  placeholder="Insira sua Gemini API Key..."
+                  className="w-full p-1.5 text-[10px] border border-zinc-300 rounded bg-white"
+                  value={geminiKey}
+                  onChange={(e) => setGeminiKey(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-zinc-400 uppercase">OpenAI API Key</label>
+                <input 
+                  type="password"
+                  placeholder="Insira sua OpenAI API Key..."
+                  className="w-full p-1.5 text-[10px] border border-zinc-300 rounded bg-white"
+                  value={openaiKey}
+                  onChange={(e) => setOpenaiKey(e.target.value)}
+                />
+              </div>
+
+              <div className="flex gap-2 pt-1">
                 <button 
-                  onClick={handleSaveKey}
-                  className="flex-1 bg-zinc-800 text-white text-[10px] py-1 rounded hover:bg-zinc-700 font-bold"
+                  onClick={handleSaveKeys}
+                  className="flex-1 bg-zinc-800 text-white text-[10px] py-1.5 rounded hover:bg-zinc-700 font-bold"
                 >
                   Salvar
                 </button>
                 <button 
                   onClick={() => setShowKeyInput(false)}
-                  className="flex-1 bg-zinc-200 text-zinc-600 text-[10px] py-1 rounded hover:bg-zinc-300"
+                  className="flex-1 bg-zinc-200 text-zinc-600 text-[10px] py-1.5 rounded hover:bg-zinc-300"
                 >
                   Cancelar
                 </button>
               </div>
             </div>
           ) : (
-            <p className="text-zinc-500 text-[10px] leading-relaxed">
-              {customKey 
-                ? "Usando sua chave de API personalizada." 
-                : "Usando a chave de API padrão do sistema (Gratuita)."}
-            </p>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-zinc-500 text-[10px] font-medium">
+                  {activeProvider === 'gemini' ? 'Google Gemini' : 'OpenAI ChatGPT'}
+                </p>
+                <span className="text-[9px] bg-zinc-200 text-zinc-600 px-1.5 py-0.5 rounded font-bold uppercase">Ativo</span>
+              </div>
+              <div className="pt-2 border-t border-zinc-200">
+                <p className="text-[9px] font-bold text-zinc-400 uppercase mb-1">Uso da Sessão</p>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-1.5 bg-zinc-200 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-emerald-500 transition-all duration-500" 
+                      style={{ width: `${Math.min((usage / 50) * 100, 100)}%` }}
+                    />
+                  </div>
+                  <span className="text-[10px] font-bold text-zinc-600">{usage} chamadas</span>
+                </div>
+                <p className="text-[8px] text-zinc-400 mt-1 italic">* O limite gratuito varia por provedor.</p>
+              </div>
+            </div>
           )}
         </div>
 
@@ -295,6 +347,7 @@ const Flow = () => {
   const [addChildMenu, setAddChildMenu] = useState<{ parentId: string, x: number, y: number } | null>(null);
   const [expandedSuggestionIdx, setExpandedSuggestionIdx] = useState<number | null>(null);
   const [canFetchSuggestions, setCanFetchSuggestions] = useState(false);
+  const [suggestionHistory, setSuggestionHistory] = useState<{ label: string, suggestions: string[] }[]>([]);
 
   const addChildNode = useCallback((parentId: string, type: string, label?: string) => {
     const parentNode = getNodes().find((n) => n.id === parentId);
@@ -423,11 +476,29 @@ const Flow = () => {
   // Fetch dynamic suggestions when a node is selected and user confirms
   useEffect(() => {
     if (canFetchSuggestions && selectedNode && selectedNode.data.label && !selectedNode.type?.includes('Gate')) {
+      const label = selectedNode.data.label as string;
+      
+      // Check if we already have this in history
+      const cached = suggestionHistory.find(h => h.label === label);
+      if (cached) {
+        setDynamicSuggestions(cached.suggestions);
+        setIsLoadingSuggestions(false);
+        return;
+      }
+
       setIsLoadingSuggestions(true);
-      getFTASuggestions(selectedNode.data.label as string, selectedNode.type as string)
+      getFTASuggestions(label, selectedNode.type as string)
         .then(suggestions => {
           setDynamicSuggestions(suggestions);
           setIsLoadingSuggestions(false);
+          // Add to history if not empty
+          if (suggestions.length > 0) {
+            setSuggestionHistory(prev => {
+              // Keep only last 10 items
+              const newHistory = [{ label, suggestions }, ...prev.filter(h => h.label !== label)];
+              return newHistory.slice(0, 10);
+            });
+          }
         });
     } else {
       setDynamicSuggestions([]);
@@ -933,6 +1004,47 @@ const Flow = () => {
             <p className="text-sm text-zinc-500 font-medium">Selecione um nó para ver sugestões de causas.</p>
           </div>
         )}
+
+        {/* Suggestion History */}
+        {suggestionHistory.length > 0 && (
+          <div className="mt-auto pt-6 border-t border-zinc-200 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
+                <History className="w-3 h-3" /> Histórico Recente
+              </h3>
+              <button 
+                onClick={() => setSuggestionHistory([])}
+                className="text-[9px] text-zinc-400 hover:text-red-500 font-bold uppercase"
+              >
+                Limpar
+              </button>
+            </div>
+            <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+              {suggestionHistory.map((item, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => {
+                    // If the same node is selected, just show the suggestions
+                    if (selectedNode && selectedNode.data.label === item.label) {
+                      setCanFetchSuggestions(true);
+                      setDynamicSuggestions(item.suggestions);
+                    } else {
+                      // If different node, we'd need to find it or just show the label
+                      // For now, let's just allow clicking if it matches current selection
+                      // Or better: allow clicking to see what was suggested for that label
+                      setDynamicSuggestions(item.suggestions);
+                      setCanFetchSuggestions(true);
+                    }
+                  }}
+                  className="w-full text-left p-2 rounded-lg bg-white border border-zinc-200 hover:border-emerald-200 hover:bg-emerald-50 transition-all group"
+                >
+                  <p className="text-[11px] font-bold text-zinc-700 truncate group-hover:text-emerald-700">{item.label}</p>
+                  <p className="text-[9px] text-zinc-400 truncate">{item.suggestions.length} sugestões salvas</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </aside>
 
       {showSuggestions && (
@@ -976,40 +1088,203 @@ const Flow = () => {
   );
 };
 
+const Header = ({ onOpenHelp }: { onOpenHelp: () => void }) => {
+  const { toObject, setNodes, setEdges, setViewport } = useReactFlow();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const onSave = useCallback(() => {
+    const flow = toObject();
+    const blob = new Blob([JSON.stringify(flow, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.download = `fta-project-${Date.now()}.json`;
+    link.href = url;
+    link.click();
+    URL.revokeObjectURL(url);
+  }, [toObject]);
+
+  const onOpen = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const onFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const flow = JSON.parse(e.target?.result as string);
+        if (flow) {
+          const { nodes = [], edges = [], viewport } = flow;
+          setNodes(nodes);
+          setEdges(edges);
+          if (viewport) {
+            setViewport(viewport);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to parse project file', err);
+        alert('Erro ao abrir o arquivo. Verifique se é um projeto FTA válido.');
+      }
+    };
+    reader.readAsText(file);
+    // Reset input value to allow opening the same file again
+    event.target.value = '';
+  }, [setNodes, setEdges, setViewport]);
+
+  return (
+    <header className="h-16 border-b border-zinc-200 flex items-center justify-between px-8 bg-white/80 backdrop-blur-md z-10">
+      <div className="flex items-center gap-4">
+        <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-900/10">
+          <Zap className="w-6 h-6 text-white" />
+        </div>
+        <div>
+          <h1 className="text-lg font-bold tracking-tight text-zinc-800">FTA Maintenance Pro</h1>
+          <p className="text-zinc-400 text-[10px] uppercase tracking-widest font-bold">Análise Inteligente de Árvore de Falhas</p>
+        </div>
+      </div>
+      
+      <nav className="flex items-center gap-4">
+        <input 
+          type="file" 
+          ref={fileInputRef} 
+          className="hidden" 
+          accept=".json" 
+          onChange={onFileChange} 
+        />
+        <button 
+          onClick={onOpen}
+          className="text-zinc-500 hover:text-emerald-600 transition-colors flex items-center gap-2 text-sm font-medium bg-zinc-50 px-3 py-2 rounded-lg border border-zinc-200"
+        >
+          <FolderOpen className="w-4 h-4" /> Abrir Projeto
+        </button>
+        <button 
+          onClick={onSave}
+          className="text-white bg-emerald-600 hover:bg-emerald-700 transition-colors flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg shadow-sm"
+        >
+          <Save className="w-4 h-4" /> Salvar Projeto
+        </button>
+        <div className="h-6 w-px bg-zinc-200 mx-2" />
+        <button 
+          onClick={onOpenHelp}
+          className="text-zinc-500 hover:text-emerald-600 transition-colors flex items-center gap-2 text-sm font-medium"
+        >
+          <HelpCircle className="w-4 h-4" /> Ajuda
+        </button>
+      </nav>
+    </header>
+  );
+};
+
+const HelpModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[200] flex items-center justify-center p-6">
+      <div className="bg-white border border-zinc-200 rounded-3xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="p-6 border-b border-zinc-100 flex items-center justify-between bg-zinc-50">
+          <div>
+            <h2 className="text-xl font-bold flex items-center gap-3 text-zinc-800">
+              <HelpCircle className="w-6 h-6 text-emerald-600" /> 
+              Guia de Configuração de API
+            </h2>
+            <p className="text-zinc-500 text-sm mt-1">Como obter e configurar suas chaves de Inteligência Artificial</p>
+          </div>
+          <button 
+            onClick={onClose}
+            className="p-2 hover:bg-zinc-200 rounded-full transition-colors"
+          >
+            <X className="w-6 h-6 text-zinc-400" />
+          </button>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto p-8 space-y-8">
+          <section className="space-y-4">
+            <h3 className="text-lg font-bold text-zinc-800 flex items-center gap-2">
+              <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600">1</div>
+              Google Gemini (Recomendado)
+            </h3>
+            <div className="pl-10 space-y-3 text-zinc-600 text-sm leading-relaxed">
+              <p>O Gemini oferece um nível gratuito generoso e é o provedor padrão desta aplicação.</p>
+              <ol className="list-decimal pl-4 space-y-2">
+                <li>Acesse o <strong><a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-emerald-600 hover:underline">Google AI Studio</a></strong>.</li>
+                <li>Faça login com sua conta Google.</li>
+                <li>Clique no botão <strong>"Create API key"</strong>.</li>
+                <li>Selecione um projeto (ou crie um novo) e clique em <strong>"Create API key in existing project"</strong>.</li>
+                <li>Copie a chave gerada.</li>
+              </ol>
+            </div>
+          </section>
+
+          <section className="space-y-4">
+            <h3 className="text-lg font-bold text-zinc-800 flex items-center gap-2">
+              <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center text-emerald-600">2</div>
+              OpenAI ChatGPT (Alternativo)
+            </h3>
+            <div className="pl-10 space-y-3 text-zinc-600 text-sm leading-relaxed">
+              <p>Você também pode usar o GPT-3.5 ou GPT-4 da OpenAI.</p>
+              <ol className="list-decimal pl-4 space-y-2">
+                <li>Acesse a <strong><a href="https://platform.openai.com/api-keys" target="_blank" className="text-emerald-600 hover:underline">Plataforma OpenAI</a></strong>.</li>
+                <li>Crie uma conta ou faça login.</li>
+                <li>No menu lateral, vá em <strong>"API Keys"</strong>.</li>
+                <li>Clique em <strong>"+ Create new secret key"</strong>.</li>
+                <li>Dê um nome e clique em <strong>"Create secret key"</strong>.</li>
+                <li><strong>Importante:</strong> Copie a chave imediatamente, pois ela não será exibida novamente.</li>
+              </ol>
+            </div>
+          </section>
+
+          <section className="space-y-4">
+            <h3 className="text-lg font-bold text-zinc-800 flex items-center gap-2">
+              <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center text-amber-600">3</div>
+              Como Adicionar na Aplicação
+            </h3>
+            <div className="pl-10 space-y-3 text-zinc-600 text-sm leading-relaxed">
+              <ol className="list-decimal pl-4 space-y-2">
+                <li>Na barra lateral esquerda, clique no ícone de engrenagem (<Settings2 className="w-3 h-3 inline" />) na seção <strong>Inteligência Artificial</strong>.</li>
+                <li>Selecione o <strong>Provedor Ativo</strong> que deseja utilizar.</li>
+                <li>Cole sua chave no campo correspondente (Gemini ou OpenAI).</li>
+                <li>Clique em <strong>"Salvar"</strong>. A página irá recarregar para aplicar as novas configurações.</li>
+              </ol>
+              <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl mt-4">
+                <p className="text-amber-800 text-xs font-bold flex items-center gap-2 mb-1">
+                  <AlertTriangle className="w-3 h-3" /> Nota de Segurança
+                </p>
+                <p className="text-amber-700 text-[11px]">Sua chave é salva apenas no seu navegador (localStorage). Ela nunca é enviada para nossos servidores, exceto para realizar as consultas de IA diretamente aos provedores.</p>
+              </div>
+            </div>
+          </section>
+        </div>
+        
+        <div className="p-6 border-t border-zinc-100 bg-zinc-50 flex justify-end">
+          <button 
+            onClick={onClose}
+            className="bg-zinc-800 text-white px-6 py-2 rounded-xl font-bold hover:bg-zinc-700 transition-all shadow-lg"
+          >
+            Entendi, vamos lá!
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function App() {
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
+
   return (
     <div className="w-full h-screen flex bg-white text-zinc-900 font-sans overflow-hidden">
       <ReactFlowProvider>
         <Sidebar />
         <div className="flex-1 flex flex-col">
-          <header className="h-16 border-b border-zinc-200 flex items-center justify-between px-8 bg-white/80 backdrop-blur-md z-10">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-900/10">
-                <Zap className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-lg font-bold tracking-tight text-zinc-800">FTA Maintenance Pro</h1>
-                <p className="text-zinc-400 text-[10px] uppercase tracking-widest font-bold">Análise Inteligente de Árvore de Falhas</p>
-              </div>
-            </div>
-            
-            <nav className="flex items-center gap-6">
-              <button className="text-zinc-500 hover:text-emerald-600 transition-colors flex items-center gap-2 text-sm font-medium">
-                <FileText className="w-4 h-4" /> Projetos
-              </button>
-              <button className="text-zinc-500 hover:text-emerald-600 transition-colors flex items-center gap-2 text-sm font-medium">
-                <Settings2 className="w-4 h-4" /> Configurações
-              </button>
-              <button className="text-zinc-500 hover:text-emerald-600 transition-colors flex items-center gap-2 text-sm font-medium">
-                <HelpCircle className="w-4 h-4" /> Ajuda
-              </button>
-            </nav>
-          </header>
+          <Header onOpenHelp={() => setIsHelpOpen(true)} />
           
           <main className="flex-1 relative bg-white">
             <Flow />
           </main>
         </div>
+        <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
       </ReactFlowProvider>
     </div>
   );

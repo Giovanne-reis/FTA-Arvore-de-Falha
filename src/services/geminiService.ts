@@ -1,22 +1,32 @@
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
+import OpenAI from "openai";
+
+export type AIProvider = 'gemini' | 'openai';
+
+/**
+ * Tracks local usage to give the user an idea of their consumption.
+ */
+export const getLocalUsage = () => {
+  const usage = localStorage.getItem('ai_usage_count') || '0';
+  return parseInt(usage, 10);
+};
+
+const incrementLocalUsage = () => {
+  const current = getLocalUsage();
+  localStorage.setItem('ai_usage_count', (current + 1).toString());
+};
 
 /**
  * Helper to call Gemini with a fallback mechanism.
- * Tries a Pro model first, then falls back to Flash if quota is reached.
  */
-async function generateContentWithFallback(params: any): Promise<GenerateContentResponse> {
-  // Priority: 
-  // 1. User provided key in localStorage (if we add that)
-  // 2. VITE_GEMINI_API_KEY (for Vercel/Production)
-  // 3. process.env.GEMINI_API_KEY (for AI Studio/Local)
-  
+async function generateGeminiContent(params: any): Promise<GenerateContentResponse> {
   const apiKey = 
     localStorage.getItem('custom_gemini_api_key') || 
     (import.meta as any).env.VITE_GEMINI_API_KEY || 
     (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : undefined);
   
   if (!apiKey) {
-    throw new Error("Chave API do Gemini não encontrada. Configure VITE_GEMINI_API_KEY no Vercel ou insira uma chave nas configurações.");
+    throw new Error("Chave API do Gemini não encontrada.");
   }
 
   const ai = new GoogleGenAI({ apiKey });
@@ -32,19 +42,10 @@ async function generateContentWithFallback(params: any): Promise<GenerateContent
       return response;
     } catch (error: any) {
       lastError = error;
-      const errorMessage = error?.message || "";
-      
-      // If the error is "Requested entity was not found", it might be an invalid key selection
-      if (errorMessage.includes("Requested entity was not found")) {
-        console.error("[Gemini] API Key selection error. Please re-select your key.");
-      }
-
-      const isQuotaError = errorMessage.includes("429") || 
-                          errorMessage.toLowerCase().includes("quota") || 
-                          errorMessage.toLowerCase().includes("limit");
+      const isQuotaError = error?.message?.includes("429") || 
+                          error?.message?.toLowerCase().includes("quota");
 
       if (isQuotaError && model !== models[models.length - 1]) {
-        console.warn(`[Gemini] Limite atingido para o modelo ${model}. Tentando fallback para ${models[models.indexOf(model) + 1]}...`);
         continue;
       }
       break;
@@ -53,29 +54,69 @@ async function generateContentWithFallback(params: any): Promise<GenerateContent
   throw lastError;
 }
 
-export async function getFTASuggestions(nodeLabel: string, nodeType: string) {
-  try {
-    const response = await generateContentWithFallback({
-      contents: `Analise o seguinte evento em uma Árvore de Falhas (FTA) de equipamentos: "${nodeLabel}" (Tipo: ${nodeType}). 
-      Sugira 5 causas prováveis ou sub-eventos que poderiam estar abaixo deste nó na hierarquia.
-      As sugestões devem ser curtas (máximo 5 palavras), técnicas e em Português.`,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            suggestions: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING }
-            }
-          },
-          required: ["suggestions"]
-        }
-      }
-    });
+/**
+ * Helper to call OpenAI.
+ */
+async function generateOpenAIContent(prompt: string): Promise<string[]> {
+  const apiKey = localStorage.getItem('custom_openai_api_key');
+  
+  if (!apiKey) {
+    throw new Error("Chave API da OpenAI não encontrada.");
+  }
 
-    const data = JSON.parse(response.text || '{"suggestions": []}');
-    return data.suggestions as string[];
+  const openai = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" }
+    });
+    
+    const content = response.choices[0].message.content || "{}";
+    const parsed = JSON.parse(content);
+    return parsed.suggestions || [];
+  } catch (error) {
+    console.error("OpenAI Error:", error);
+    throw error;
+  }
+}
+
+export async function getFTASuggestions(nodeLabel: string, nodeType: string): Promise<string[]> {
+  const provider = (localStorage.getItem('active_ai_provider') as AIProvider) || 'gemini';
+  const prompt = `Analise o seguinte evento em uma Árvore de Falhas (FTA) de equipamentos: "${nodeLabel}" (Tipo: ${nodeType}). 
+  Sugira 5 causas prováveis ou sub-eventos que poderiam estar abaixo deste nó na hierarquia.
+  As sugestões devem ser curtas (máximo 5 palavras), técnicas e em Português.
+  Retorne no formato JSON: { "suggestions": ["causa 1", "causa 2", ...] }`;
+
+  try {
+    let suggestions: string[] = [];
+    
+    if (provider === 'openai') {
+      suggestions = await generateOpenAIContent(prompt);
+    } else {
+      const response = await generateGeminiContent({
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              suggestions: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING }
+              }
+            },
+            required: ["suggestions"]
+          }
+        }
+      });
+      const data = JSON.parse(response.text || '{"suggestions": []}');
+      suggestions = data.suggestions;
+    }
+    
+    incrementLocalUsage();
+    return suggestions;
   } catch (error) {
     console.error("Error fetching suggestions:", error);
     return [];
