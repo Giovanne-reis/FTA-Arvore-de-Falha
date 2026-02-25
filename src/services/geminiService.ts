@@ -82,10 +82,16 @@ async function generateOpenAIContent(prompt: string): Promise<string[]> {
   }
 }
 
-export async function getFTASuggestions(nodeLabel: string, nodeType: string): Promise<string[]> {
+export async function getFTASuggestions(nodeLabel: string, nodeType: string, contextPath: string[] = []): Promise<string[]> {
   const provider = (localStorage.getItem('active_ai_provider') as AIProvider) || 'gemini';
-  const prompt = `Analise o seguinte evento em uma Árvore de Falhas (FTA) de equipamentos: "${nodeLabel}" (Tipo: ${nodeType}). 
-  Sugira 8 causas prováveis ou sub-eventos que poderiam estar abaixo deste nó na hierarquia.
+  
+  let contextStr = "";
+  if (contextPath.length > 1) {
+    contextStr = `\nContexto da hierarquia (do topo para este nó): ${contextPath.join(' -> ')}.`;
+  }
+
+  const prompt = `Analise o seguinte evento em uma Árvore de Falhas (FTA) de equipamentos: "${nodeLabel}" (Tipo: ${nodeType}).${contextStr}
+  Sugira 8 causas prováveis ou sub-eventos que poderiam estar abaixo deste nó na hierarquia, considerando o contexto técnico fornecido.
   As sugestões devem ser curtas (máximo 5 palavras), técnicas e em Português.
   Retorne no formato JSON: { "suggestions": ["causa 1", "causa 2", ...] }`;
 

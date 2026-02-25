@@ -349,6 +349,29 @@ const Flow = () => {
   const [canFetchSuggestions, setCanFetchSuggestions] = useState(false);
   const [suggestionHistory, setSuggestionHistory] = useState<{ label: string, suggestions: string[] }[]>([]);
 
+  const getNodeContextPath = useCallback((nodeId: string): string[] => {
+    const path: string[] = [];
+    let currentNodeId = nodeId;
+    const visited = new Set<string>();
+
+    while (currentNodeId && !visited.has(currentNodeId)) {
+      visited.add(currentNodeId);
+      const node = nodes.find(n => n.id === currentNodeId);
+      if (node && node.data.label) {
+        path.unshift(node.data.label as string);
+      }
+
+      // Find parent (incoming edge)
+      const incomingEdge = edges.find(e => e.target === currentNodeId);
+      if (incomingEdge) {
+        currentNodeId = incomingEdge.source;
+      } else {
+        break;
+      }
+    }
+    return path;
+  }, [nodes, edges]);
+
   const addChildNode = useCallback((parentId: string, type: string, label?: string) => {
     const parentNode = getNodes().find((n) => n.id === parentId);
     if (!parentNode) return;
@@ -478,6 +501,7 @@ const Flow = () => {
     if (!selectedNode || !selectedNode.data.label || selectedNode.type?.includes('Gate')) return;
     
     const label = selectedNode.data.label as string;
+    const contextPath = getNodeContextPath(selectedNode.id);
     
     // Check if we already have this in history
     const cached = suggestionHistory.find(h => h.label === label);
@@ -491,7 +515,7 @@ const Flow = () => {
     setCanFetchSuggestions(true);
     
     try {
-      const suggestions = await getFTASuggestions(label, selectedNode.type as string);
+      const suggestions = await getFTASuggestions(label, selectedNode.type as string, contextPath);
       setDynamicSuggestions(suggestions);
       // Add to history if not empty
       if (suggestions.length > 0) {
@@ -505,7 +529,7 @@ const Flow = () => {
     } finally {
       setIsLoadingSuggestions(false);
     }
-  }, [selectedNode, suggestionHistory]);
+  }, [selectedNode, suggestionHistory, getNodeContextPath]);
 
   // Auto-load from history when selection changes
   useEffect(() => {
@@ -593,16 +617,16 @@ const Flow = () => {
   const exportImage = async (format: 'png' | 'jpeg') => {
     if (!reactFlowWrapper.current) return;
     
-    // Hide UI elements during export
-    const controls = document.querySelector('.react-flow__controls') as HTMLElement;
-    const minimap = document.querySelector('.react-flow__minimap') as HTMLElement;
-    if (controls) controls.style.display = 'none';
-    if (minimap) minimap.style.display = 'none';
+    const filter = (node: HTMLElement) => {
+      const exclusionClasses = ['react-flow__panel', 'react-flow__controls', 'react-flow__minimap'];
+      return !exclusionClasses.some(cls => node.classList?.contains && node.classList.contains(cls));
+    };
 
     try {
+      const options = { backgroundColor: '#ffffff', quality: 1, filter };
       const dataUrl = format === 'png' 
-        ? await toPng(reactFlowWrapper.current, { backgroundColor: '#ffffff', quality: 1 })
-        : await toJpeg(reactFlowWrapper.current, { backgroundColor: '#ffffff', quality: 1 });
+        ? await toPng(reactFlowWrapper.current, options)
+        : await toJpeg(reactFlowWrapper.current, options);
       
       const link = document.createElement('a');
       link.download = `fta-export-${Date.now()}.${format}`;
@@ -610,17 +634,19 @@ const Flow = () => {
       link.click();
     } catch (err) {
       console.error('Export failed', err);
-    } finally {
-      if (controls) controls.style.display = 'flex';
-      if (minimap) minimap.style.display = 'block';
     }
   };
 
   const exportPDF = async () => {
     if (!reactFlowWrapper.current) return;
     
+    const filter = (node: HTMLElement) => {
+      const exclusionClasses = ['react-flow__panel', 'react-flow__controls', 'react-flow__minimap'];
+      return !exclusionClasses.some(cls => node.classList?.contains && node.classList.contains(cls));
+    };
+
     try {
-      const dataUrl = await toPng(reactFlowWrapper.current, { backgroundColor: '#ffffff', quality: 1 });
+      const dataUrl = await toPng(reactFlowWrapper.current, { backgroundColor: '#ffffff', quality: 1, filter });
       const pdf = new jsPDF('l', 'mm', 'a4');
       const imgProps = pdf.getImageProperties(dataUrl);
       const pdfWidth = pdf.internal.pageSize.getWidth();
