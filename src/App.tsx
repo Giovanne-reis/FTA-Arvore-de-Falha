@@ -43,7 +43,15 @@ import {
   Grid,
   Save,
   FolderOpen,
-  History
+  History,
+  Undo2,
+  Redo2,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignJustify,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
 
 import { 
@@ -336,6 +344,12 @@ const Flow = () => {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  
+  // Undo/Redo State
+  const [history, setHistory] = useState<{ nodes: Node[], edges: Edge[] }[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [isUndoRedoAction, setIsUndoRedoAction] = useState(false);
+
   const { screenToFlowPosition, getNodes, fitView, toObject, setViewport } = useReactFlow();
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<Edge | null>(null);
@@ -348,6 +362,174 @@ const Flow = () => {
   const [expandedSuggestionIdx, setExpandedSuggestionIdx] = useState<number | null>(null);
   const [canFetchSuggestions, setCanFetchSuggestions] = useState(false);
   const [suggestionHistory, setSuggestionHistory] = useState<{ label: string, suggestions: string[] }[]>([]);
+
+  // Undo/Redo Logic
+  const takeSnapshot = useCallback(() => {
+    if (isUndoRedoAction) return;
+
+    const currentSnapshot = { nodes: [...nodes], edges: [...edges] };
+    
+    // Only take snapshot if it's different from the last one
+    if (historyIndex >= 0) {
+      const lastSnapshot = history[historyIndex];
+      if (JSON.stringify(lastSnapshot.nodes) === JSON.stringify(currentSnapshot.nodes) &&
+          JSON.stringify(lastSnapshot.edges) === JSON.stringify(currentSnapshot.edges)) {
+        return;
+      }
+    }
+
+    const newHistory = history.slice(0, historyIndex + 1);
+    newHistory.push(currentSnapshot);
+    
+    // Limit history to 50 steps
+    if (newHistory.length > 50) {
+      newHistory.shift();
+    } else {
+      setHistoryIndex(newHistory.length - 1);
+    }
+    
+    setHistory(newHistory);
+  }, [nodes, edges, history, historyIndex, isUndoRedoAction]);
+
+  const undo = useCallback(() => {
+    if (historyIndex > 0) {
+      setIsUndoRedoAction(true);
+      const prevIndex = historyIndex - 1;
+      const snapshot = history[prevIndex];
+      setNodes(snapshot.nodes);
+      setEdges(snapshot.edges);
+      setHistoryIndex(prevIndex);
+      setTimeout(() => setIsUndoRedoAction(false), 100);
+    }
+  }, [history, historyIndex, setNodes, setEdges]);
+
+  const redo = useCallback(() => {
+    if (historyIndex < history.length - 1) {
+      setIsUndoRedoAction(true);
+      const nextIndex = historyIndex + 1;
+      const snapshot = history[nextIndex];
+      setNodes(snapshot.nodes);
+      setEdges(snapshot.edges);
+      setHistoryIndex(nextIndex);
+      setTimeout(() => setIsUndoRedoAction(false), 100);
+    }
+  }, [history, historyIndex, setNodes, setEdges]);
+
+  // Take initial snapshot
+  useEffect(() => {
+    if (nodes.length > 0 && history.length === 0) {
+      takeSnapshot();
+    }
+  }, [nodes.length, history.length, takeSnapshot]);
+
+  // Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key === 'z') {
+        if (event.shiftKey) {
+          redo();
+        } else {
+          undo();
+        }
+      } else if ((event.ctrlKey || event.metaKey) && event.key === 'y') {
+        redo();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [undo, redo]);
+
+  // Alignment Assistant
+  const alignNodes = useCallback((direction: 'horizontal' | 'vertical') => {
+    const selectedNodes = nodes.filter(n => n.selected);
+    if (selectedNodes.length < 2) return;
+
+    takeSnapshot();
+
+    const getCenter = (node: Node) => {
+      // Use hardcoded widths for better alignment precision
+      const isGate = node.type?.includes('Gate') || node.type?.includes('transfer');
+      const width = isGate ? 60 : 200;
+      const height = isGate ? 60 : 65;
+      return {
+        x: node.position.x + width / 2,
+        y: node.position.y + height / 2,
+        width,
+        height
+      };
+    };
+
+    if (direction === 'horizontal') {
+      const centers = selectedNodes.map(getCenter);
+      const avgCenterY = Math.round((centers.reduce((acc, c) => acc + c.y, 0) / selectedNodes.length) / 20) * 20;
+      
+      setNodes(nds => nds.map(n => {
+        if (!n.selected) return n;
+        const center = getCenter(n);
+        return { ...n, position: { ...n.position, y: avgCenterY - center.height / 2 } };
+      }));
+    } else {
+      const centers = selectedNodes.map(getCenter);
+      const avgCenterX = Math.round((centers.reduce((acc, c) => acc + c.x, 0) / selectedNodes.length) / 20) * 20;
+      
+      setNodes(nds => nds.map(n => {
+        if (!n.selected) return n;
+        const center = getCenter(n);
+        return { ...n, position: { ...n.position, x: avgCenterX - center.width / 2 } };
+      }));
+    }
+  }, [nodes, setNodes, takeSnapshot]);
+
+  const distributeNodes = useCallback((direction: 'horizontal' | 'vertical') => {
+    const selectedNodes = nodes.filter(n => n.selected);
+    if (selectedNodes.length < 3) return;
+
+    takeSnapshot();
+
+    const getCenter = (node: Node) => {
+      // Use hardcoded widths for better alignment precision
+      const isGate = node.type?.includes('Gate') || node.type?.includes('transfer');
+      const width = isGate ? 60 : 200;
+      const height = isGate ? 60 : 65;
+      return {
+        x: node.position.x + width / 2,
+        y: node.position.y + height / 2,
+        width,
+        height
+      };
+    };
+
+    if (direction === 'horizontal') {
+      const sorted = [...selectedNodes].map(n => ({ node: n, center: getCenter(n) }))
+        .sort((a, b) => a.center.x - b.center.x);
+      
+      const minCenterX = sorted[0].center.x;
+      const maxCenterX = sorted[sorted.length - 1].center.x;
+      const spacing = Math.round(((maxCenterX - minCenterX) / (sorted.length - 1)) / 20) * 20;
+      
+      setNodes(nds => nds.map(n => {
+        const found = sorted.find(s => s.node.id === n.id);
+        if (!found) return n;
+        const idx = sorted.indexOf(found);
+        return { ...n, position: { ...n.position, x: (minCenterX + idx * spacing) - found.center.width / 2 } };
+      }));
+    } else {
+      const sorted = [...selectedNodes].map(n => ({ node: n, center: getCenter(n) }))
+        .sort((a, b) => a.center.y - b.center.y);
+      
+      const minCenterY = sorted[0].center.y;
+      const maxCenterY = sorted[sorted.length - 1].center.y;
+      const spacing = Math.round(((maxCenterY - minCenterY) / (sorted.length - 1)) / 20) * 20;
+      
+      setNodes(nds => nds.map(n => {
+        const found = sorted.find(s => s.node.id === n.id);
+        if (!found) return n;
+        const idx = sorted.indexOf(found);
+        return { ...n, position: { ...n.position, y: (minCenterY + idx * spacing) - found.center.height / 2 } };
+      }));
+    }
+  }, [nodes, setNodes, takeSnapshot]);
 
   const getNodeContextPath = useCallback((nodeId: string): string[] => {
     const path: string[] = [];
@@ -372,18 +554,43 @@ const Flow = () => {
     return path;
   }, [nodes, edges]);
 
+  const onToggleLegend = useCallback((nodeId: string) => {
+    setNodes((nds) =>
+      nds.map((node) => {
+        if (node.id === nodeId) {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              showLegend: !node.data.showLegend,
+            },
+          };
+        }
+        return node;
+      })
+    );
+    setTimeout(takeSnapshot, 50);
+  }, [setNodes, takeSnapshot]);
+
   const addChildNode = useCallback((parentId: string, type: string, label?: string) => {
     const parentNode = getNodes().find((n) => n.id === parentId);
     if (!parentNode) return;
 
     const newNodeId = `${Date.now()}`;
     
+    // Calculate centering offset
+    const parentWidth = parentNode.measured?.width ?? (parentNode.type?.includes('Gate') || parentNode.type?.includes('transfer') ? 60 : 200);
+    const childWidth = type.includes('Gate') || type.includes('transfer') ? 60 : 200;
+    const xOffset = (parentWidth - childWidth) / 2;
+
     const newNode: Node = {
       id: newNodeId,
       type,
-      position: { x: parentNode.position.x, y: parentNode.position.y + 150 },
+      position: { x: parentNode.position.x + xOffset, y: parentNode.position.y + 160 },
       data: { 
         label: label || 'Nova Causa',
+        onOpenAddChildMenu,
+        onToggleLegend,
       },
     };
 
@@ -397,7 +604,8 @@ const Flow = () => {
     setNodes((nds) => nds.concat(newNode));
     setEdges((eds) => eds.concat(newEdge));
     setAddChildMenu(null);
-  }, [getNodes, setNodes, setEdges]);
+    setTimeout(takeSnapshot, 50);
+  }, [getNodes, setNodes, setEdges, takeSnapshot]);
 
   const onOpenAddChildMenu = useCallback((event: React.MouseEvent, parentId: string) => {
     const rect = (event.target as HTMLElement).getBoundingClientRect();
@@ -414,7 +622,12 @@ const Flow = () => {
     // Position it in the center of the current view or near the selected node
     let position = { x: 500, y: 300 };
     if (selectedNode) {
-      position = { x: selectedNode.position.x + 200, y: selectedNode.position.y };
+      // Calculate centering offset
+      const parentWidth = selectedNode.measured?.width ?? (selectedNode.type?.includes('Gate') || selectedNode.type?.includes('transfer') ? 60 : 200);
+      const childWidth = type.includes('Gate') || type.includes('transfer') ? 60 : 200;
+      const xOffset = (parentWidth - childWidth) / 2;
+      
+      position = { x: selectedNode.position.x + xOffset, y: selectedNode.position.y + 160 };
     }
 
     const newNode: Node = {
@@ -423,7 +636,8 @@ const Flow = () => {
       position,
       data: { 
         label,
-        onAddChild: () => addChildNode(newNodeId)
+        onOpenAddChildMenu,
+        onToggleLegend,
       },
     };
 
@@ -436,7 +650,16 @@ const Flow = () => {
     if (saved) {
       const flow = JSON.parse(saved);
       if (flow) {
-        setNodes(flow.nodes || []);
+        // Re-attach callbacks to loaded nodes
+        const nodesWithCallbacks = (flow.nodes || []).map((node: Node) => ({
+          ...node,
+          data: {
+            ...node.data,
+            onOpenAddChildMenu,
+            onToggleLegend,
+          }
+        }));
+        setNodes(nodesWithCallbacks);
         setEdges(flow.edges || []);
         if (flow.viewport) {
           setViewport(flow.viewport);
@@ -452,7 +675,8 @@ const Flow = () => {
         type: 'topEvent',
         data: { 
           label: 'QUEDA DE ENERGIA NO CPD',
-          onAddChild: () => addChildNode(initialId)
+          onOpenAddChildMenu,
+          onToggleLegend,
         },
         position: { x: 400, y: 50 },
       },
@@ -573,10 +797,11 @@ const Flow = () => {
 
   const deleteEdge = useCallback(() => {
     if (selectedEdge) {
+      takeSnapshot();
       setEdges((eds) => eds.filter((e) => e.id !== selectedEdge.id));
       setSelectedEdge(null);
     }
-  }, [selectedEdge, setEdges]);
+  }, [selectedEdge, setEdges, takeSnapshot]);
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
@@ -594,6 +819,10 @@ const Flow = () => {
         y: event.clientY,
       });
 
+      // Snap to grid
+      position.x = Math.round(position.x / 20) * 20;
+      position.y = Math.round(position.y / 20) * 20;
+
       const newNodeId = `${Date.now()}`;
       let defaultLabel = 'Nova Causa';
       if (type.includes('Gate')) defaultLabel = '';
@@ -606,24 +835,43 @@ const Flow = () => {
         position,
         data: { 
           label: defaultLabel,
+          onOpenAddChildMenu,
+          onToggleLegend,
         },
       };
 
       setNodes((nds) => nds.concat(newNode));
+      setTimeout(takeSnapshot, 50);
     },
-    [screenToFlowPosition, setNodes, addChildNode]
+    [screenToFlowPosition, setNodes, addChildNode, takeSnapshot]
   );
 
   const exportImage = async (format: 'png' | 'jpeg') => {
     if (!reactFlowWrapper.current) return;
     
     const filter = (node: HTMLElement) => {
-      const exclusionClasses = ['react-flow__panel', 'react-flow__controls', 'react-flow__minimap'];
+      const exclusionClasses = [
+        'react-flow__panel', 
+        'react-flow__controls', 
+        'react-flow__minimap', 
+        'react-flow__attribution',
+        'export-ignore'
+      ];
       return !exclusionClasses.some(cls => node.classList?.contains && node.classList.contains(cls));
     };
 
     try {
-      const options = { backgroundColor: '#ffffff', quality: 1, filter };
+      // Ensure we capture the full content by fitting view first if needed
+      // or just capture the current view as requested
+      const options = { 
+        backgroundColor: '#ffffff', 
+        quality: 1, 
+        filter,
+        style: {
+          transform: 'none' // Reset transform for the capture if needed, but React Flow handles this better usually
+        }
+      };
+      
       const dataUrl = format === 'png' 
         ? await toPng(reactFlowWrapper.current, options)
         : await toJpeg(reactFlowWrapper.current, options);
@@ -641,7 +889,13 @@ const Flow = () => {
     if (!reactFlowWrapper.current) return;
     
     const filter = (node: HTMLElement) => {
-      const exclusionClasses = ['react-flow__panel', 'react-flow__controls', 'react-flow__minimap'];
+      const exclusionClasses = [
+        'react-flow__panel', 
+        'react-flow__controls', 
+        'react-flow__minimap', 
+        'react-flow__attribution',
+        'export-ignore'
+      ];
       return !exclusionClasses.some(cls => node.classList?.contains && node.classList.contains(cls));
     };
 
@@ -715,11 +969,12 @@ const Flow = () => {
 
   const deleteSelected = useCallback(() => {
     if (selectedNode) {
+      takeSnapshot();
       setNodes((nds) => nds.filter((n) => n.id !== selectedNode.id));
       setEdges((eds) => eds.filter((e) => e.source !== selectedNode.id && e.target !== selectedNode.id));
       setSelectedNode(null);
     }
-  }, [selectedNode, setNodes, setEdges]);
+  }, [selectedNode, setNodes, setEdges, takeSnapshot]);
 
   // Keyboard support for deletion
   useEffect(() => {
@@ -742,8 +997,8 @@ const Flow = () => {
   }, [selectedNode, selectedEdge, deleteSelected, deleteEdge]);
 
   return (
-    <div className="flex-1 h-full flex relative" ref={reactFlowWrapper}>
-      <div className="flex-1 relative">
+    <div className="flex-1 h-full flex relative">
+      <div className="flex-1 relative" ref={reactFlowWrapper}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -758,6 +1013,9 @@ const Flow = () => {
           nodeTypes={nodeTypes}
           defaultEdgeOptions={defaultEdgeOptions}
           fitView
+          snapToGrid={true}
+          snapGrid={[20, 20]}
+          onNodeDragStop={takeSnapshot}
         >
           {showGrid && <Background color="#e2e8f0" variant="lines" gap={20} />}
           <Controls />
@@ -775,6 +1033,56 @@ const Flow = () => {
           />
           
           <Panel position="top-right" className="flex gap-2">
+            <div className="flex bg-white border border-zinc-200 rounded-lg shadow-sm overflow-hidden mr-2">
+              <button 
+                onClick={undo}
+                disabled={historyIndex <= 0}
+                className="p-2 hover:bg-zinc-50 disabled:opacity-30 transition-colors border-r border-zinc-100"
+                title="Desfazer (Ctrl+Z)"
+              >
+                <Undo2 className="w-4 h-4 text-zinc-600" />
+              </button>
+              <button 
+                onClick={redo}
+                disabled={historyIndex >= history.length - 1}
+                className="p-2 hover:bg-zinc-50 disabled:opacity-30 transition-colors"
+                title="Refazer (Ctrl+Y)"
+              >
+                <Redo2 className="w-4 h-4 text-zinc-600" />
+              </button>
+            </div>
+
+            <div className="flex bg-white border border-zinc-200 rounded-lg shadow-sm overflow-hidden mr-2">
+              <button 
+                onClick={() => alignNodes('horizontal')}
+                className="p-2 hover:bg-zinc-50 transition-colors border-r border-zinc-100"
+                title="Alinhar Horizontalmente"
+              >
+                <AlignCenter className="w-4 h-4 text-zinc-600 rotate-90" />
+              </button>
+              <button 
+                onClick={() => alignNodes('vertical')}
+                className="p-2 hover:bg-zinc-50 transition-colors border-r border-zinc-100"
+                title="Alinhar Verticalmente"
+              >
+                <AlignCenter className="w-4 h-4 text-zinc-600" />
+              </button>
+              <button 
+                onClick={() => distributeNodes('horizontal')}
+                className="p-2 hover:bg-zinc-50 transition-colors border-r border-zinc-100"
+                title="Distribuir Horizontalmente"
+              >
+                <AlignJustify className="w-4 h-4 text-zinc-600 rotate-90" />
+              </button>
+              <button 
+                onClick={() => distributeNodes('vertical')}
+                className="p-2 hover:bg-zinc-50 transition-colors"
+                title="Distribuir Verticalmente"
+              >
+                <AlignJustify className="w-4 h-4 text-zinc-600" />
+              </button>
+            </div>
+
             <button 
               onClick={() => setShowGrid(!showGrid)}
               className={cn(
@@ -884,7 +1192,7 @@ const Flow = () => {
 
           {addChildMenu && (
             <div 
-              className="fixed z-[100] bg-white border border-zinc-200 rounded-xl shadow-2xl py-2 w-56 animate-in fade-in zoom-in-95 duration-200"
+              className="fixed z-[100] bg-white border border-zinc-200 rounded-xl shadow-2xl py-2 w-56 animate-in fade-in zoom-in-95 duration-200 export-ignore"
               style={{ left: addChildMenu.x, top: addChildMenu.y }}
             >
               <div className="px-4 py-2 border-b border-zinc-100 mb-1">
