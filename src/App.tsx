@@ -19,6 +19,9 @@ import {
   useReactFlow,
   Node,
   getOutgoers,
+  BackgroundVariant,
+  getNodesBounds,
+  getViewportForBounds
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { toPng, toJpeg } from 'html-to-image';
@@ -51,7 +54,9 @@ import {
   AlignRight,
   AlignJustify,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  Copy,
+  Check
 } from 'lucide-react';
 
 import { 
@@ -70,7 +75,8 @@ import {
 } from './components/FTANodes';
 import { COMMON_EQUIPMENT_FAILURES } from './constants/suggestions';
 
-import { getFTASuggestions, getLocalUsage, AIProvider } from './services/geminiService';
+import { getFTASuggestions, getLocalUsage, AIProvider, analyzeFullFTA } from './services/geminiService';
+import Markdown from 'react-markdown';
 
 const nodeTypes = {
   topEvent: TopEventNode,
@@ -355,6 +361,17 @@ const Flow = () => {
   const [selectedEdge, setSelectedEdge] = useState<Edge | null>(null);
   const [editValue, setEditValue] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isAnalyzingFull, setIsAnalyzingFull] = useState(false);
+  const [fullAnalysisResult, setFullAnalysisResult] = useState<string | null>(null);
+  const [showFullAnalysisModal, setShowFullAnalysisModal] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
+
+  useEffect(() => {
+    const savedAnalysis = localStorage.getItem('last_full_analysis');
+    if (savedAnalysis) {
+      setFullAnalysisResult(savedAnalysis);
+    }
+  }, []);
   const [dynamicSuggestions, setDynamicSuggestions] = useState<string[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [showGrid, setShowGrid] = useState(true);
@@ -849,6 +866,9 @@ const Flow = () => {
   const exportImage = async (format: 'png' | 'jpeg') => {
     if (!reactFlowWrapper.current) return;
     
+    const nodes = getNodes();
+    if (nodes.length === 0) return;
+
     const filter = (node: HTMLElement) => {
       const exclusionClasses = [
         'react-flow__panel', 
@@ -861,14 +881,25 @@ const Flow = () => {
     };
 
     try {
-      // Ensure we capture the full content by fitting view first if needed
-      // or just capture the current view as requested
+      const bounds = getNodesBounds(nodes);
+      const padding = 80;
+      const width = bounds.width + padding * 2;
+      const height = bounds.height + padding * 2;
+      
+      // Calculate viewport to fit all nodes
+      const viewport = getViewportForBounds(bounds, width, height, 0.1, 10, 0.1);
+
       const options = { 
         backgroundColor: '#ffffff', 
         quality: 1, 
+        pixelRatio: 3,
         filter,
+        width,
+        height,
         style: {
-          transform: 'none' // Reset transform for the capture if needed, but React Flow handles this better usually
+          width: `${width}px`,
+          height: `${height}px`,
+          transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
         }
       };
       
@@ -888,6 +919,9 @@ const Flow = () => {
   const exportPDF = async () => {
     if (!reactFlowWrapper.current) return;
     
+    const nodes = getNodes();
+    if (nodes.length === 0) return;
+
     const filter = (node: HTMLElement) => {
       const exclusionClasses = [
         'react-flow__panel', 
@@ -900,8 +934,28 @@ const Flow = () => {
     };
 
     try {
-      const dataUrl = await toPng(reactFlowWrapper.current, { backgroundColor: '#ffffff', quality: 1, filter });
-      const pdf = new jsPDF('l', 'mm', 'a4');
+      const bounds = getNodesBounds(nodes);
+      const padding = 80;
+      const width = bounds.width + padding * 2;
+      const height = bounds.height + padding * 2;
+      
+      const viewport = getViewportForBounds(bounds, width, height, 0.1, 10, 0.1);
+
+      const dataUrl = await toPng(reactFlowWrapper.current, { 
+        backgroundColor: '#ffffff', 
+        quality: 1, 
+        pixelRatio: 3,
+        filter,
+        width,
+        height,
+        style: {
+          width: `${width}px`,
+          height: `${height}px`,
+          transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
+        }
+      });
+      
+      const pdf = new jsPDF('l', 'mm', [width * 0.264583, height * 0.264583]); // Convert px to mm
       const imgProps = pdf.getImageProperties(dataUrl);
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
@@ -913,6 +967,32 @@ const Flow = () => {
     }
   };
 
+  const copyToClipboard = async () => {
+    if (!fullAnalysisResult) return;
+    try {
+      await navigator.clipboard.writeText(fullAnalysisResult);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+  const handleFullAnalysis = async () => {
+    if (nodes.length === 0) return;
+    setIsAnalyzingFull(true);
+    setShowFullAnalysisModal(true);
+    setFullAnalysisResult(null);
+    
+    try {
+      const result = await analyzeFullFTA(nodes, edges);
+      setFullAnalysisResult(result);
+      localStorage.setItem('last_full_analysis', result);
+    } catch (error: any) {
+      setFullAnalysisResult(`### Erro na Análise\n\nNão foi possível completar a análise da árvore: ${error.message}`);
+    } finally {
+      setIsAnalyzingFull(false);
+    }
+  };
   const applySuggestion = (suggestion: typeof COMMON_EQUIPMENT_FAILURES[0]) => {
     const topId = `top-${Date.now()}`;
     const newNodes: Node[] = [
@@ -1017,7 +1097,7 @@ const Flow = () => {
           snapGrid={[20, 20]}
           onNodeDragStop={takeSnapshot}
         >
-          {showGrid && <Background color="#e2e8f0" variant="lines" gap={20} />}
+          {showGrid && <Background color="#e2e8f0" variant={BackgroundVariant.Lines} gap={20} />}
           <Controls />
           <MiniMap 
             style={{ backgroundColor: '#fff' }} 
@@ -1111,6 +1191,14 @@ const Flow = () => {
               </div>
             </div>
             
+            <button 
+              onClick={handleFullAnalysis}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm transition-colors shadow-sm"
+              title="Análise Completa com IA"
+            >
+              <Zap className="w-4 h-4" /> Analisar Árvore
+            </button>
+
             <button 
               onClick={() => setShowSuggestions(true)}
               className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm transition-colors shadow-sm"
@@ -1242,6 +1330,86 @@ const Flow = () => {
           )}
         </ReactFlow>
       </div>
+
+      {/* Full Analysis Modal */}
+      {showFullAnalysisModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-3xl max-h-[80vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="p-6 border-b border-zinc-100 flex items-center justify-between bg-zinc-50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-indigo-100 rounded-2xl flex items-center justify-center">
+                  <Zap className="w-5 h-5 text-indigo-600" />
+                </div>
+                <div>
+                  <h2 className="text-zinc-900 font-bold">Auditoria Técnica de FTA</h2>
+                  <p className="text-zinc-500 text-xs">Análise profunda gerada por Inteligência Artificial</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowFullAnalysisModal(false)}
+                className="p-2 hover:bg-zinc-200 rounded-xl transition-colors text-zinc-400"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-8">
+              {isAnalyzingFull ? (
+                <div className="h-full flex flex-col items-center justify-center space-y-4 py-12">
+                  <div className="w-12 h-12 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin" />
+                  <div className="text-center">
+                    <p className="text-zinc-900 font-bold">Analisando sua Árvore de Falhas...</p>
+                    <p className="text-zinc-500 text-sm">Isso pode levar alguns segundos dependendo da complexidade.</p>
+                  </div>
+                </div>
+              ) : fullAnalysisResult ? (
+                <div className="prose prose-zinc prose-sm max-w-none markdown-body">
+                  <Markdown>{fullAnalysisResult}</Markdown>
+                </div>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center space-y-4 py-12">
+                  <div className="w-12 h-12 bg-indigo-50 rounded-full flex items-center justify-center">
+                    <Zap className="w-6 h-6 text-indigo-400" />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-zinc-900 font-bold">Nenhuma análise disponível</p>
+                    <p className="text-zinc-500 text-sm">Clique no botão abaixo para gerar uma auditoria completa.</p>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="p-6 border-t border-zinc-100 bg-zinc-50 flex justify-between items-center">
+              <div className="flex gap-2">
+                <button 
+                  onClick={copyToClipboard}
+                  disabled={!fullAnalysisResult || isAnalyzingFull}
+                  className="flex items-center gap-2 px-4 py-2 bg-white border border-zinc-200 text-zinc-600 rounded-xl font-bold text-sm hover:bg-zinc-50 transition-colors disabled:opacity-50"
+                >
+                  {isCopied ? (
+                    <><Check className="w-4 h-4 text-emerald-500" /> Copiado!</>
+                  ) : (
+                    <><Copy className="w-4 h-4" /> Copiar</>
+                  )}
+                </button>
+                <button 
+                  onClick={handleFullAnalysis}
+                  disabled={isAnalyzingFull}
+                  className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl font-bold text-sm hover:bg-indigo-100 transition-colors disabled:opacity-50"
+                >
+                  <History className="w-4 h-4" /> {fullAnalysisResult ? 'Gerar Nova Análise' : 'Gerar Análise'}
+                </button>
+              </div>
+              <button 
+                onClick={() => setShowFullAnalysisModal(false)}
+                className="px-6 py-2 bg-zinc-900 text-white rounded-xl font-bold text-sm hover:bg-zinc-800 transition-colors"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Dynamic Suggestions Sidebar */}
       <aside className="w-80 bg-zinc-50 border-l border-zinc-200 p-6 flex flex-col gap-6 overflow-y-auto">

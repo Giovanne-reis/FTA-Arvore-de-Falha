@@ -128,3 +128,55 @@ export async function getFTASuggestions(nodeLabel: string, nodeType: string, con
     return [];
   }
 }
+
+export async function analyzeFullFTA(nodes: any[], edges: any[]): Promise<string> {
+  const provider = (localStorage.getItem('active_ai_provider') as AIProvider) || 'gemini';
+  
+  // Simplify tree structure for the prompt
+  const treeSummary = nodes.map(n => ({
+    id: n.id,
+    label: n.data.label,
+    type: n.type,
+    children: edges.filter(e => e.source === n.id).map(e => e.target)
+  }));
+
+  const prompt = `Você é um especialista sênior em Engenharia de Confiabilidade e Análise de Árvore de Falhas (FTA).
+  Analise a seguinte estrutura de Árvore de Falhas e forneça um relatório detalhado de auditoria técnica.
+  
+  Estrutura da Árvore:
+  ${JSON.stringify(treeSummary, null, 2)}
+  
+  Sua análise deve cobrir:
+  1. Melhorias: Onde a árvore pode ser mais detalhada ou técnica.
+  2. Inconsistências Lógicas: Portas que não fazem sentido, eventos que não se conectam logicamente.
+  3. Reorganização: Sugestões de como agrupar ou separar eventos para melhor clareza.
+  4. Precisão Técnica: Avalie se os termos usados são profissionais e precisos para o setor industrial/manutenção.
+  
+  Forneça a resposta em Markdown, formatada de forma profissional e em Português.`;
+
+  try {
+    let analysis = "";
+    
+    if (provider === 'openai') {
+      const apiKey = localStorage.getItem('custom_openai_api_key');
+      if (!apiKey) throw new Error("Chave API da OpenAI não encontrada.");
+      const openai = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
+      const response = await openai.chat.completions.create({
+        model: "gpt-4-turbo-preview",
+        messages: [{ role: "user", content: prompt }]
+      });
+      analysis = response.choices[0].message.content || "Não foi possível gerar a análise.";
+    } else {
+      const response = await generateGeminiContent({
+        contents: prompt,
+      });
+      analysis = response.text || "Não foi possível gerar a análise.";
+    }
+    
+    incrementLocalUsage();
+    return analysis;
+  } catch (error) {
+    console.error("Error analyzing FTA:", error);
+    throw error;
+  }
+}

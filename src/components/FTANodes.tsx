@@ -239,7 +239,7 @@ export const TransferInNode = memo(({ data, selected }: NodeProps) => (
         stroke={selected ? "#10b981" : "#4b5563"} 
         strokeWidth="2" 
       />
-      <text x="24" y="38" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#1f2937">{data.label}</text>
+      <text x="24" y="38" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#1f2937">{data.label as string}</text>
     </svg>
     <Handle type="target" position={Position.Top} id="top" className="w-2.5 h-2.5 bg-zinc-400 border-white !top-[5px]" />
     <Handle type="source" position={Position.Bottom} id="bottom" className="w-2.5 h-2.5 bg-zinc-400 border-white !bottom-[5px]" />
@@ -260,7 +260,7 @@ export const TransferOutNode = memo(({ data, selected }: NodeProps) => (
         stroke={selected ? "#10b981" : "#4b5563"} 
         strokeWidth="2" 
       />
-      <text x="24" y="18" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#1f2937">{data.label}</text>
+      <text x="24" y="18" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#1f2937">{data.label as string}</text>
     </svg>
     <Handle type="target" position={Position.Top} id="top" className="w-2.5 h-2.5 bg-zinc-400 border-white !top-[5px]" />
     <Handle type="source" position={Position.Bottom} id="bottom" className="w-2.5 h-2.5 bg-zinc-400 border-white !bottom-[5px]" />
@@ -274,6 +274,6 @@ export const AnnotationNode = memo(({ data, selected }: NodeProps) => (
     "px-3 py-2 min-w-[100px] text-center transition-all relative group",
     selected ? "outline outline-1 outline-emerald-500/50 rounded-md bg-emerald-50/10" : "hover:outline hover:outline-1 hover:outline-zinc-200 hover:rounded-md"
   )}>
-    <div className="text-sm font-medium text-zinc-700 whitespace-pre-wrap">{data.label || 'Texto...'}</div>
+    <div className="text-sm font-medium text-zinc-700 whitespace-pre-wrap">{(data.label as string) || 'Texto...'}</div>
   </div>
 ));
