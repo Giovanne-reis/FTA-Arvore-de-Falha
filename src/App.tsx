@@ -21,7 +21,8 @@ import {
   getOutgoers,
   BackgroundVariant,
   getNodesBounds,
-  getViewportForBounds
+  getViewportForBounds,
+  SelectionMode
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { toPng, toJpeg } from 'html-to-image';
@@ -56,7 +57,9 @@ import {
   ArrowUp,
   ArrowDown,
   Copy,
-  Check
+  Check,
+  Hand,
+  MousePointer
 } from 'lucide-react';
 
 import { 
@@ -375,6 +378,7 @@ const Flow = () => {
   const [dynamicSuggestions, setDynamicSuggestions] = useState<string[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [showGrid, setShowGrid] = useState(true);
+  const [interactionMode, setInteractionMode] = useState<'pan' | 'select'>('pan');
   const [addChildMenu, setAddChildMenu] = useState<{ parentId: string, x: number, y: number } | null>(null);
   const [expandedSuggestionIdx, setExpandedSuggestionIdx] = useState<number | null>(null);
   const [canFetchSuggestions, setCanFetchSuggestions] = useState(false);
@@ -820,6 +824,19 @@ const Flow = () => {
     }
   }, [selectedEdge, setEdges, takeSnapshot]);
 
+  const deleteSelectedElements = useCallback(() => {
+    const selectedNodes = nodes.filter(n => n.selected);
+    const selectedEdges = edges.filter(e => e.selected);
+    
+    if (selectedNodes.length > 0 || selectedEdges.length > 0) {
+      takeSnapshot();
+      setNodes((nds) => nds.filter((node) => !node.selected));
+      setEdges((eds) => eds.filter((edge) => !edge.selected));
+      setSelectedNode(null);
+      setSelectedEdge(null);
+    }
+  }, [nodes, edges, setNodes, setEdges, takeSnapshot]);
+
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
@@ -979,6 +996,19 @@ const Flow = () => {
   };
   const handleFullAnalysis = async () => {
     if (nodes.length === 0) return;
+    
+    // If we already have a result, just show it
+    if (fullAnalysisResult) {
+      setShowFullAnalysisModal(true);
+      return;
+    }
+
+    // Otherwise, trigger a new one
+    await triggerNewAnalysis();
+  };
+
+  const triggerNewAnalysis = async () => {
+    if (nodes.length === 0) return;
     setIsAnalyzingFull(true);
     setShowFullAnalysisModal(true);
     setFullAnalysisResult(null);
@@ -1096,6 +1126,10 @@ const Flow = () => {
           snapToGrid={true}
           snapGrid={[20, 20]}
           onNodeDragStop={takeSnapshot}
+          panOnDrag={interactionMode === 'pan'}
+          selectionOnDrag={interactionMode === 'select'}
+          selectionMode={SelectionMode.Partial}
+          panOnScroll={true}
         >
           {showGrid && <Background color="#e2e8f0" variant={BackgroundVariant.Lines} gap={20} />}
           <Controls />
@@ -1113,6 +1147,29 @@ const Flow = () => {
           />
           
           <Panel position="top-right" className="flex gap-2">
+            <div className="flex bg-white border border-zinc-200 rounded-lg shadow-sm overflow-hidden mr-2">
+              <button 
+                onClick={() => setInteractionMode('pan')}
+                className={cn(
+                  "p-2 transition-colors border-r border-zinc-100",
+                  interactionMode === 'pan' ? "bg-indigo-50 text-indigo-600" : "hover:bg-zinc-50 text-zinc-600"
+                )}
+                title="Modo Movimentar (Mão)"
+              >
+                <Hand className="w-4 h-4" />
+              </button>
+              <button 
+                onClick={() => setInteractionMode('select')}
+                className={cn(
+                  "p-2 transition-colors",
+                  interactionMode === 'select' ? "bg-indigo-50 text-indigo-600" : "hover:bg-zinc-50 text-zinc-600"
+                )}
+                title="Modo Selecionar (Seta)"
+              >
+                <MousePointer className="w-4 h-4" />
+              </button>
+            </div>
+
             <div className="flex bg-white border border-zinc-200 rounded-lg shadow-sm overflow-hidden mr-2">
               <button 
                 onClick={undo}
@@ -1214,7 +1271,22 @@ const Flow = () => {
             </button>
           </Panel>
 
-          {selectedEdge && (
+          {((nodes.filter(n => n.selected).length + edges.filter(e => e.selected).length) > 1) && (
+            <Panel position="bottom-center" className="bg-white p-4 rounded-2xl border border-zinc-200 shadow-2xl mb-8 flex items-center gap-4 animate-in fade-in slide-in-from-bottom-4">
+              <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">
+                {nodes.filter(n => n.selected).length + edges.filter(e => e.selected).length} itens selecionados
+              </span>
+              <div className="w-px h-4 bg-zinc-200" />
+              <button 
+                onClick={deleteSelectedElements}
+                className="flex items-center gap-2 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white px-4 py-2 rounded-xl transition-all text-sm font-bold"
+              >
+                <Trash2 className="w-4 h-4" /> APAGAR SELEÇÃO
+              </button>
+            </Panel>
+          )}
+
+          {selectedEdge && nodes.filter(n => n.selected).length === 0 && edges.filter(e => e.selected).length === 1 && (
             <Panel position="bottom-center" className="bg-white p-4 rounded-2xl border border-zinc-200 shadow-2xl mb-8">
               <button 
                 onClick={deleteEdge}
@@ -1225,7 +1297,7 @@ const Flow = () => {
             </Panel>
           )}
 
-          {selectedNode && !selectedNode.type?.includes('Gate') && (
+          {selectedNode && !selectedNode.type?.includes('Gate') && nodes.filter(n => n.selected).length === 1 && (
             <Panel position="bottom-center" className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-2xl w-[400px] mb-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -1393,7 +1465,7 @@ const Flow = () => {
                   )}
                 </button>
                 <button 
-                  onClick={handleFullAnalysis}
+                  onClick={triggerNewAnalysis}
                   disabled={isAnalyzingFull}
                   className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl font-bold text-sm hover:bg-indigo-100 transition-colors disabled:opacity-50"
                 >
