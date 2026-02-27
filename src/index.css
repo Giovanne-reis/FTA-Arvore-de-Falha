@@ -42,3 +42,15 @@ body {
 .react-flow__attribution {
   display: none !important;
 }
+
+.mode-pan .react-flow__pane {
+  cursor: grab !important;
+}
+
+.mode-pan .react-flow__pane:active {
+  cursor: grabbing !important;
+}
+
+.mode-select .react-flow__pane {
+  cursor: crosshair !important;
+}

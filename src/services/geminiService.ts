@@ -7,6 +7,15 @@ export type AIProvider = 'gemini' | 'openai';
  * Tracks local usage to give the user an idea of their consumption.
  */
 export const getLocalUsage = () => {
+  const today = new Date().toISOString().split('T')[0];
+  const lastResetDate = localStorage.getItem('ai_usage_last_reset');
+  
+  if (lastResetDate !== today) {
+    localStorage.setItem('ai_usage_count', '0');
+    localStorage.setItem('ai_usage_last_reset', today);
+    return 0;
+  }
+
   const usage = localStorage.getItem('ai_usage_count') || '0';
   return parseInt(usage, 10);
 };

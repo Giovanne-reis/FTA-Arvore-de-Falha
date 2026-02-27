@@ -27,6 +27,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import { toPng, toJpeg } from 'html-to-image';
 import { jsPDF } from 'jspdf';
+import dagre from 'dagre';
 import { 
   Plus, 
   Trash2, 
@@ -59,7 +60,9 @@ import {
   Copy,
   Check,
   Hand,
-  MousePointer
+  MousePointer,
+  Search,
+  LayoutTemplate
 } from 'lucide-react';
 
 import { 
@@ -98,6 +101,40 @@ const nodeTypes = {
 const defaultEdgeOptions = {
   type: 'step',
   style: { strokeWidth: 2, stroke: '#94a3b8' },
+};
+
+const dagreGraph = new dagre.graphlib.Graph();
+dagreGraph.setDefaultEdgeLabel(() => ({}));
+
+const nodeWidth = 220;
+const nodeHeight = 120;
+
+const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'TB') => {
+  const isHorizontal = direction === 'LR';
+  dagreGraph.setGraph({ rankdir: direction });
+
+  nodes.forEach((node) => {
+    dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
+  });
+
+  edges.forEach((edge) => {
+    dagreGraph.setEdge(edge.source, edge.target);
+  });
+
+  dagre.layout(dagreGraph);
+
+  const newNodes = nodes.map((node) => {
+    const nodeWithPosition = dagreGraph.node(node.id);
+    return {
+      ...node,
+      position: {
+        x: nodeWithPosition.x - nodeWidth / 2,
+        y: nodeWithPosition.y - nodeHeight / 2,
+      },
+    };
+  });
+
+  return { nodes: newNodes, edges };
 };
 
 const Sidebar = () => {
@@ -383,17 +420,29 @@ const Flow = () => {
   const [expandedSuggestionIdx, setExpandedSuggestionIdx] = useState<number | null>(null);
   const [canFetchSuggestions, setCanFetchSuggestions] = useState(false);
   const [suggestionHistory, setSuggestionHistory] = useState<{ label: string, suggestions: string[] }[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<string[]>([]);
+  const [searchIndex, setSearchIndex] = useState(-1);
+  const [copiedNodes, setCopiedNodes] = useState<Node[]>([]);
+  const [copiedEdges, setCopiedEdges] = useState<Edge[]>([]);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Undo/Redo Logic
   const takeSnapshot = useCallback(() => {
     if (isUndoRedoAction) return;
 
-    const currentSnapshot = { nodes: [...nodes], edges: [...edges] };
+    const currentSnapshot = { 
+      nodes: nodes.map(n => ({ ...n })), 
+      edges: edges.map(e => ({ ...e })) 
+    };
     
     // Only take snapshot if it's different from the last one
     if (historyIndex >= 0) {
       const lastSnapshot = history[historyIndex];
-      if (JSON.stringify(lastSnapshot.nodes) === JSON.stringify(currentSnapshot.nodes) &&
+      // Simple check for changes
+      if (lastSnapshot.nodes.length === currentSnapshot.nodes.length &&
+          lastSnapshot.edges.length === currentSnapshot.edges.length &&
+          JSON.stringify(lastSnapshot.nodes) === JSON.stringify(currentSnapshot.nodes) &&
           JSON.stringify(lastSnapshot.edges) === JSON.stringify(currentSnapshot.edges)) {
         return;
       }
@@ -405,11 +454,10 @@ const Flow = () => {
     // Limit history to 50 steps
     if (newHistory.length > 50) {
       newHistory.shift();
-    } else {
-      setHistoryIndex(newHistory.length - 1);
     }
     
     setHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
   }, [nodes, edges, history, historyIndex, isUndoRedoAction]);
 
   const undo = useCallback(() => {
@@ -442,24 +490,6 @@ const Flow = () => {
       takeSnapshot();
     }
   }, [nodes.length, history.length, takeSnapshot]);
-
-  // Keyboard Shortcuts
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key === 'z') {
-        if (event.shiftKey) {
-          redo();
-        } else {
-          undo();
-        }
-      } else if ((event.ctrlKey || event.metaKey) && event.key === 'y') {
-        redo();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [undo, redo]);
 
   // Alignment Assistant
   const alignNodes = useCallback((direction: 'horizontal' | 'vertical') => {
@@ -796,8 +826,11 @@ const Flow = () => {
   }, [selectedNode?.id]);
 
   const onConnect = useCallback(
-    (params: Connection) => setEdges((eds) => addEdge({ ...params, type: 'step' }, eds)),
-    [setEdges]
+    (params: Connection) => {
+      takeSnapshot();
+      setEdges((eds) => addEdge({ ...params, type: 'step' }, eds));
+    },
+    [setEdges, takeSnapshot]
   );
 
   const onEdgeClick = useCallback((_: React.MouseEvent, edge: Edge) => {
@@ -836,6 +869,188 @@ const Flow = () => {
       setSelectedEdge(null);
     }
   }, [nodes, edges, setNodes, setEdges, takeSnapshot]);
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    if (!query.trim()) {
+      setSearchResults([]);
+      setSearchIndex(-1);
+      return;
+    }
+
+    const matches = nodes
+      .filter(n => (n.data.label as string)?.toLowerCase().includes(query.toLowerCase()))
+      .map(n => n.id);
+
+    setSearchResults(matches);
+    
+    if (matches.length > 0) {
+      setSearchIndex(0);
+      const foundNode = nodes.find(n => n.id === matches[0]);
+      if (foundNode) {
+        setViewport({ 
+          x: -foundNode.position.x + window.innerWidth / 2, 
+          y: -foundNode.position.y + window.innerHeight / 2, 
+          zoom: 1 
+        }, { duration: 800 });
+        setNodes(nds => nds.map(n => ({ ...n, selected: n.id === foundNode.id })));
+      }
+    } else {
+      setSearchIndex(-1);
+    }
+  };
+
+  const goToNextSearchResult = useCallback(() => {
+    if (searchResults.length === 0) return;
+    
+    const nextIndex = (searchIndex + 1) % searchResults.length;
+    setSearchIndex(nextIndex);
+    
+    const nodeId = searchResults[nextIndex];
+    const foundNode = nodes.find(n => n.id === nodeId);
+    
+    if (foundNode) {
+      setViewport({ 
+        x: -foundNode.position.x + window.innerWidth / 2, 
+        y: -foundNode.position.y + window.innerHeight / 2, 
+        zoom: 1 
+      }, { duration: 800 });
+      setNodes(nds => nds.map(n => ({ ...n, selected: n.id === foundNode.id })));
+    }
+  }, [searchResults, searchIndex, nodes, setViewport, setNodes]);
+
+  const goToPrevSearchResult = useCallback(() => {
+    if (searchResults.length === 0) return;
+    
+    const prevIndex = (searchIndex - 1 + searchResults.length) % searchResults.length;
+    setSearchIndex(prevIndex);
+    
+    const nodeId = searchResults[prevIndex];
+    const foundNode = nodes.find(n => n.id === nodeId);
+    
+    if (foundNode) {
+      setViewport({ 
+        x: -foundNode.position.x + window.innerWidth / 2, 
+        y: -foundNode.position.y + window.innerHeight / 2, 
+        zoom: 1 
+      }, { duration: 800 });
+      setNodes(nds => nds.map(n => ({ ...n, selected: n.id === foundNode.id })));
+    }
+  }, [searchResults, searchIndex, nodes, setViewport, setNodes]);
+  
+  // Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const isInput = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement;
+      
+      // Global shortcuts
+      if ((event.ctrlKey || event.metaKey) && event.key === 'f') {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+        return;
+      }
+
+      if (isInput) {
+        if (event.key === 'Enter' && event.target === searchInputRef.current) {
+          event.preventDefault();
+          goToNextSearchResult();
+        }
+        return;
+      }
+
+      // Move nodes with arrows
+      const selectedNodes = nodes.filter(n => n.selected);
+      if (selectedNodes.length > 0 && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+        event.preventDefault();
+        const step = event.shiftKey ? 40 : 10;
+        const dx = event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0;
+        const dy = event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0;
+        
+        setNodes(nds => nds.map(node => {
+          if (node.selected) {
+            return {
+              ...node,
+              position: { x: node.position.x + dx, y: node.position.y + dy }
+            };
+          }
+          return node;
+        }));
+        return;
+      }
+
+      // Copy/Paste
+      if ((event.ctrlKey || event.metaKey) && event.key === 'c') {
+        const selected = nodes.filter(n => n.selected);
+        if (selected.length > 0) {
+          setCopiedNodes(selected);
+          const selectedEdgeIds = edges.filter(e => 
+            selected.some(n => n.id === e.source) && selected.some(n => n.id === e.target)
+          );
+          setCopiedEdges(selectedEdgeIds);
+        }
+      }
+
+      if ((event.ctrlKey || event.metaKey) && event.key === 'v') {
+        if (copiedNodes.length > 0) {
+          takeSnapshot();
+          const idMap: Record<string, string> = {};
+          const newNodes = copiedNodes.map(node => {
+            const newId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            idMap[node.id] = newId;
+            return {
+              ...node,
+              id: newId,
+              selected: true,
+              position: { x: node.position.x + 40, y: node.position.y + 40 }
+            };
+          });
+
+          const newEdges = copiedEdges.map(edge => ({
+            ...edge,
+            id: `e-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            source: idMap[edge.source],
+            target: idMap[edge.target],
+            selected: true
+          }));
+
+          setNodes(nds => nds.map(n => ({ ...n, selected: false })).concat(newNodes));
+          setEdges(eds => eds.map(e => ({ ...e, selected: false })).concat(newEdges));
+        }
+      }
+
+      // Enter to edit
+      if (event.key === 'Enter' && selectedNodes.length === 1) {
+        const node = selectedNodes[0];
+        if (!node.type?.includes('Gate')) {
+          setSelectedNode(node);
+          setEditValue(node.data.label as string || '');
+        }
+      }
+
+      // Delete
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        if (selectedNodes.length > 0) {
+          deleteSelectedElements();
+        } else if (selectedEdge) {
+          deleteEdge();
+        }
+      }
+
+      // Undo/Redo
+      if ((event.ctrlKey || event.metaKey) && event.key === 'z') {
+        if (event.shiftKey) {
+          redo();
+        } else {
+          undo();
+        }
+      } else if ((event.ctrlKey || event.metaKey) && event.key === 'y') {
+        redo();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [nodes, edges, copiedNodes, copiedEdges, undo, redo, takeSnapshot, setNodes, setEdges, deleteSelectedElements, deleteEdge, selectedEdge, goToNextSearchResult]);
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
@@ -899,17 +1114,17 @@ const Flow = () => {
 
     try {
       const bounds = getNodesBounds(nodes);
-      const padding = 80;
+      const padding = 150; // Increased padding
       const width = bounds.width + padding * 2;
       const height = bounds.height + padding * 2;
       
-      // Calculate viewport to fit all nodes
-      const viewport = getViewportForBounds(bounds, width, height, 0.1, 10, 0.1);
+      // Calculate viewport to fit all nodes with a bit more margin
+      const viewport = getViewportForBounds(bounds, width, height, 0.01, 2, 0.1);
 
       const options = { 
         backgroundColor: '#ffffff', 
         quality: 1, 
-        pixelRatio: 3,
+        pixelRatio: 2, // Slightly lower pixel ratio to avoid memory issues on huge trees
         filter,
         width,
         height,
@@ -952,16 +1167,16 @@ const Flow = () => {
 
     try {
       const bounds = getNodesBounds(nodes);
-      const padding = 80;
+      const padding = 150; // Increased padding
       const width = bounds.width + padding * 2;
       const height = bounds.height + padding * 2;
       
-      const viewport = getViewportForBounds(bounds, width, height, 0.1, 10, 0.1);
+      const viewport = getViewportForBounds(bounds, width, height, 0.01, 2, 0.1);
 
       const dataUrl = await toPng(reactFlowWrapper.current, { 
         backgroundColor: '#ffffff', 
         quality: 1, 
-        pixelRatio: 3,
+        pixelRatio: 2,
         filter,
         width,
         height,
@@ -983,6 +1198,22 @@ const Flow = () => {
       console.error('PDF Export failed', err);
     }
   };
+
+  const onLayout = useCallback(
+    (direction: string) => {
+      takeSnapshot();
+      const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
+        nodes,
+        edges,
+        direction
+      );
+
+      setNodes([...layoutedNodes]);
+      setEdges([...layoutedEdges]);
+      setTimeout(() => fitView(), 50);
+    },
+    [nodes, edges, takeSnapshot, setNodes, setEdges, fitView]
+  );
 
   const copyToClipboard = async () => {
     if (!fullAnalysisResult) return;
@@ -1086,26 +1317,6 @@ const Flow = () => {
     }
   }, [selectedNode, setNodes, setEdges, takeSnapshot]);
 
-  // Keyboard support for deletion
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      // Don't delete if user is typing in an input or textarea
-      const isInput = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement;
-      if (isInput) return;
-
-      if (event.key === 'Delete' || event.key === 'Backspace') {
-        if (selectedNode) {
-          deleteSelected();
-        } else if (selectedEdge) {
-          deleteEdge();
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedNode, selectedEdge, deleteSelected, deleteEdge]);
-
   return (
     <div className="flex-1 h-full flex relative">
       <div className="flex-1 relative" ref={reactFlowWrapper}>
@@ -1130,6 +1341,9 @@ const Flow = () => {
           selectionOnDrag={interactionMode === 'select'}
           selectionMode={SelectionMode.Partial}
           panOnScroll={true}
+          minZoom={0.01}
+          maxZoom={4}
+          className={interactionMode === 'pan' ? 'mode-pan' : 'mode-select'}
         >
           {showGrid && <Background color="#e2e8f0" variant={BackgroundVariant.Lines} gap={20} />}
           <Controls />
@@ -1146,6 +1360,86 @@ const Flow = () => {
             }}
           />
           
+          <Panel position="top-left" className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1">
+              <div className="bg-white border border-zinc-200 rounded-xl shadow-lg p-1 flex items-center gap-2 w-64">
+                <div className="pl-3 text-zinc-400">
+                  <Search className="w-4 h-4" />
+                </div>
+                <input 
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder="Buscar na árvore... (Ctrl+F)"
+                  value={searchQuery}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  className="w-full bg-transparent border-none outline-none text-sm py-2 text-zinc-700 placeholder:text-zinc-400"
+                />
+                {searchQuery && (
+                  <button 
+                    onClick={() => {
+                      setSearchQuery('');
+                      setSearchResults([]);
+                      setSearchIndex(-1);
+                    }}
+                    className="p-1 hover:bg-zinc-100 rounded-lg text-zinc-400 mr-1"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+              {searchQuery && searchResults.length > 0 && (
+                <div className="bg-white/80 backdrop-blur-sm border border-zinc-200 rounded-lg shadow-sm px-3 py-1.5 flex items-center justify-between w-64">
+                  <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-tight">
+                    {searchIndex + 1} de {searchResults.length} encontrados
+                  </span>
+                  <div className="flex gap-1">
+                    <button 
+                      onClick={goToPrevSearchResult}
+                      className="p-1 hover:bg-zinc-100 rounded text-zinc-400"
+                      title="Anterior"
+                    >
+                      <ChevronRight className="w-3 h-3 rotate-180" />
+                    </button>
+                    <button 
+                      onClick={goToNextSearchResult}
+                      className="p-1 hover:bg-zinc-100 rounded text-zinc-400"
+                      title="Próximo (Enter)"
+                    >
+                      <ChevronRight className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              )}
+              {searchQuery && searchResults.length === 0 && (
+                <div className="bg-white/80 backdrop-blur-sm border border-zinc-200 rounded-lg shadow-sm px-3 py-1.5 w-64">
+                  <span className="text-[10px] font-bold text-red-500 uppercase tracking-tight">
+                    Nenhum item encontrado
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white border border-zinc-200 rounded-xl shadow-lg p-1 flex flex-col gap-1 w-fit">
+              <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest px-3 py-1">Auto-Layout</p>
+              <button 
+                onClick={() => onLayout('TB')}
+                className="flex items-center gap-3 px-3 py-2 hover:bg-zinc-50 text-zinc-600 rounded-lg transition-colors text-sm"
+                title="Organizar Verticalmente"
+              >
+                <LayoutTemplate className="w-4 h-4 text-indigo-500" />
+                <span>Vertical</span>
+              </button>
+              <button 
+                onClick={() => onLayout('LR')}
+                className="flex items-center gap-3 px-3 py-2 hover:bg-zinc-50 text-zinc-600 rounded-lg transition-colors text-sm"
+                title="Organizar Horizontalmente"
+              >
+                <LayoutTemplate className="w-4 h-4 text-emerald-500 rotate-[-90deg]" />
+                <span>Horizontal</span>
+              </button>
+            </div>
+          </Panel>
+
           <Panel position="top-right" className="flex gap-2">
             <div className="flex bg-white border border-zinc-200 rounded-lg shadow-sm overflow-hidden mr-2">
               <button 
