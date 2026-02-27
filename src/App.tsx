@@ -62,7 +62,9 @@ import {
   Hand,
   MousePointer,
   Search,
-  LayoutTemplate
+  LayoutTemplate,
+  Sun,
+  Moon
 } from 'lucide-react';
 
 import { 
@@ -137,7 +139,7 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'TB') => 
   return { nodes: newNodes, edges };
 };
 
-const Sidebar = () => {
+const Sidebar = ({ isDarkMode }: { isDarkMode: boolean }) => {
   const [geminiKey, setGeminiKey] = useState(localStorage.getItem('custom_gemini_api_key') || '');
   const [openaiKey, setOpenaiKey] = useState(localStorage.getItem('custom_openai_api_key') || '');
   const [activeProvider, setActiveProvider] = useState<AIProvider>((localStorage.getItem('active_ai_provider') as AIProvider) || 'gemini');
@@ -165,12 +167,18 @@ const Sidebar = () => {
   };
 
   return (
-    <aside className="w-72 bg-zinc-50 border-r border-zinc-200 p-6 flex flex-col gap-6 overflow-y-auto">
+    <aside className={cn(
+      "w-72 border-r p-6 flex flex-col gap-6 overflow-y-auto transition-colors",
+      isDarkMode ? "bg-zinc-900 border-zinc-800" : "bg-zinc-50 border-zinc-200"
+    )}>
       <div className="space-y-2">
-        <h2 className="text-zinc-500 text-xs font-bold uppercase tracking-widest flex items-center gap-2">
+        <h2 className={cn(
+          "text-xs font-bold uppercase tracking-widest flex items-center gap-2",
+          isDarkMode ? "text-zinc-400" : "text-zinc-500"
+        )}>
           <Layers className="w-4 h-4" /> Elementos da Árvore
         </h2>
-        <p className="text-zinc-400 text-[10px]">Arraste para o canvas para adicionar</p>
+        <p className={cn("text-[10px]", isDarkMode ? "text-zinc-500" : "text-zinc-400")}>Arraste para o canvas para adicionar</p>
       </div>
 
       <div className="space-y-4">
@@ -219,8 +227,8 @@ const Sidebar = () => {
           </div>
         </div>
 
-        <div className="pt-4 border-t border-zinc-200 space-y-2">
-          <h3 className="text-zinc-500 text-xs font-bold uppercase tracking-widest">Portões Lógicos</h3>
+        <div className={cn("pt-4 border-t space-y-2", isDarkMode ? "border-zinc-800" : "border-zinc-200")}>
+          <h3 className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-zinc-400" : "text-zinc-500")}>Portões Lógicos</h3>
           <div className="grid grid-cols-2 gap-2">
             <div
               className="flex flex-col items-center justify-center cursor-grab active:cursor-grabbing hover:brightness-110 transition-all p-1"
@@ -245,8 +253,8 @@ const Sidebar = () => {
           </div>
         </div>
 
-        <div className="pt-4 border-t border-zinc-200 space-y-2">
-          <h3 className="text-zinc-500 text-xs font-bold uppercase tracking-widest">Transferência</h3>
+        <div className={cn("pt-4 border-t space-y-2", isDarkMode ? "border-zinc-800" : "border-zinc-200")}>
+          <h3 className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-zinc-400" : "text-zinc-500")}>Transferência</h3>
           <div className="grid grid-cols-2 gap-2">
             <div
               className="flex flex-col items-center justify-center cursor-grab active:cursor-grabbing hover:brightness-110 transition-all p-1"
@@ -271,10 +279,13 @@ const Sidebar = () => {
           </div>
         </div>
 
-        <div className="pt-4 border-t border-zinc-200 space-y-2">
-          <h3 className="text-zinc-500 text-xs font-bold uppercase tracking-widest">Anotação</h3>
+        <div className={cn("pt-4 border-t space-y-2", isDarkMode ? "border-zinc-800" : "border-zinc-200")}>
+          <h3 className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-zinc-400" : "text-zinc-500")}>Anotação</h3>
           <div
-            className="bg-white p-3 rounded-lg cursor-grab active:cursor-grabbing text-zinc-600 font-medium text-xs text-center border-2 border-dashed border-zinc-300 shadow-sm hover:bg-zinc-50 transition-all"
+            className={cn(
+              "p-3 rounded-lg cursor-grab active:cursor-grabbing font-medium text-xs text-center border-2 border-dashed transition-all",
+              isDarkMode ? "bg-zinc-800 text-zinc-400 border-zinc-700 hover:bg-zinc-700" : "bg-white text-zinc-600 border-zinc-300 shadow-sm hover:bg-zinc-50"
+            )}
             onDragStart={(event) => onDragStart(event, 'annotation')}
             draggable
           >
@@ -283,15 +294,15 @@ const Sidebar = () => {
         </div>
       </div>
 
-      <div className="mt-auto pt-6 border-t border-zinc-200 space-y-4">
-        <div className="bg-zinc-100 p-4 rounded-xl border border-zinc-200">
+      <div className={cn("mt-auto pt-6 border-t space-y-4", isDarkMode ? "border-zinc-800" : "border-zinc-200")}>
+        <div className={cn("p-4 rounded-xl border", isDarkMode ? "bg-zinc-800 border-zinc-700" : "bg-zinc-100 border-zinc-200")}>
           <div className="flex items-center justify-between mb-2">
-            <h4 className="text-zinc-600 text-xs font-bold flex items-center gap-2">
+            <h4 className={cn("text-xs font-bold flex items-center gap-2", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>
               <Zap className="w-3 h-3 text-amber-500" /> Inteligência Artificial
             </h4>
             <button 
               onClick={() => setShowKeyInput(!showKeyInput)}
-              className="text-zinc-400 hover:text-zinc-600"
+              className={cn("transition-colors", isDarkMode ? "text-zinc-500 hover:text-zinc-300" : "text-zinc-400 hover:text-zinc-600")}
             >
               <Settings2 className="w-3 h-3" />
             </button>
@@ -300,9 +311,9 @@ const Sidebar = () => {
           {showKeyInput ? (
             <div className="space-y-3">
               <div className="space-y-1">
-                <label className="text-[9px] font-bold text-zinc-400 uppercase">Provedor Ativo</label>
+                <label className={cn("text-[9px] font-bold uppercase", isDarkMode ? "text-zinc-500" : "text-zinc-400")}>Provedor Ativo</label>
                 <select 
-                  className="w-full p-1.5 text-[10px] border border-zinc-300 rounded bg-white"
+                  className={cn("w-full p-1.5 text-[10px] border rounded", isDarkMode ? "bg-zinc-900 border-zinc-700 text-zinc-300" : "bg-white border-zinc-300 text-zinc-700")}
                   value={activeProvider}
                   onChange={(e) => setActiveProvider(e.target.value as AIProvider)}
                 >
@@ -312,22 +323,22 @@ const Sidebar = () => {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[9px] font-bold text-zinc-400 uppercase">Gemini API Key</label>
+                <label className={cn("text-[9px] font-bold uppercase", isDarkMode ? "text-zinc-500" : "text-zinc-400")}>Gemini API Key</label>
                 <input 
                   type="password"
                   placeholder="Insira sua Gemini API Key..."
-                  className="w-full p-1.5 text-[10px] border border-zinc-300 rounded bg-white"
+                  className={cn("w-full p-1.5 text-[10px] border rounded", isDarkMode ? "bg-zinc-900 border-zinc-700 text-zinc-300" : "bg-white border-zinc-300 text-zinc-700")}
                   value={geminiKey}
                   onChange={(e) => setGeminiKey(e.target.value)}
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-[9px] font-bold text-zinc-400 uppercase">OpenAI API Key</label>
+                <label className={cn("text-[9px] font-bold uppercase", isDarkMode ? "text-zinc-500" : "text-zinc-400")}>OpenAI API Key</label>
                 <input 
                   type="password"
                   placeholder="Insira sua OpenAI API Key..."
-                  className="w-full p-1.5 text-[10px] border border-zinc-300 rounded bg-white"
+                  className={cn("w-full p-1.5 text-[10px] border rounded", isDarkMode ? "bg-zinc-900 border-zinc-700 text-zinc-300" : "bg-white border-zinc-300 text-zinc-700")}
                   value={openaiKey}
                   onChange={(e) => setOpenaiKey(e.target.value)}
                 />
@@ -336,13 +347,13 @@ const Sidebar = () => {
               <div className="flex gap-2 pt-1">
                 <button 
                   onClick={handleSaveKeys}
-                  className="flex-1 bg-zinc-800 text-white text-[10px] py-1.5 rounded hover:bg-zinc-700 font-bold"
+                  className={cn("flex-1 text-[10px] py-1.5 rounded font-bold transition-colors", isDarkMode ? "bg-zinc-700 text-white hover:bg-zinc-600" : "bg-zinc-800 text-white hover:bg-zinc-700")}
                 >
                   Salvar
                 </button>
                 <button 
                   onClick={() => setShowKeyInput(false)}
-                  className="flex-1 bg-zinc-200 text-zinc-600 text-[10px] py-1.5 rounded hover:bg-zinc-300"
+                  className={cn("flex-1 text-[10px] py-1.5 rounded transition-colors", isDarkMode ? "bg-zinc-900 text-zinc-400 hover:bg-zinc-800" : "bg-zinc-200 text-zinc-600 hover:bg-zinc-300")}
                 >
                   Cancelar
                 </button>
@@ -351,33 +362,33 @@ const Sidebar = () => {
           ) : (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <p className="text-zinc-500 text-[10px] font-medium">
+                <p className={cn("text-[10px] font-medium", isDarkMode ? "text-zinc-400" : "text-zinc-500")}>
                   {activeProvider === 'gemini' ? 'Google Gemini' : 'OpenAI ChatGPT'}
                 </p>
-                <span className="text-[9px] bg-zinc-200 text-zinc-600 px-1.5 py-0.5 rounded font-bold uppercase">Ativo</span>
+                <span className={cn("text-[9px] px-1.5 py-0.5 rounded font-bold uppercase", isDarkMode ? "bg-zinc-700 text-zinc-300" : "bg-zinc-200 text-zinc-600")}>Ativo</span>
               </div>
-              <div className="pt-2 border-t border-zinc-200">
-                <p className="text-[9px] font-bold text-zinc-400 uppercase mb-1">Uso da Sessão</p>
+              <div className={cn("pt-2 border-t", isDarkMode ? "border-zinc-700" : "border-zinc-200")}>
+                <p className={cn("text-[9px] font-bold uppercase mb-1", isDarkMode ? "text-zinc-500" : "text-zinc-400")}>Uso da Sessão</p>
                 <div className="flex items-center gap-2">
-                  <div className="flex-1 h-1.5 bg-zinc-200 rounded-full overflow-hidden">
+                  <div className={cn("flex-1 h-1.5 rounded-full overflow-hidden", isDarkMode ? "bg-zinc-900" : "bg-zinc-200")}>
                     <div 
                       className="h-full bg-emerald-500 transition-all duration-500" 
                       style={{ width: `${Math.min((usage / 50) * 100, 100)}%` }}
                     />
                   </div>
-                  <span className="text-[10px] font-bold text-zinc-600">{usage} chamadas</span>
+                  <span className={cn("text-[10px] font-bold", isDarkMode ? "text-zinc-400" : "text-zinc-600")}>{usage} chamadas</span>
                 </div>
-                <p className="text-[8px] text-zinc-400 mt-1 italic">* O limite gratuito varia por provedor.</p>
+                <p className={cn("text-[8px] mt-1 italic", isDarkMode ? "text-zinc-500" : "text-zinc-400")}>* O limite gratuito varia por provedor.</p>
               </div>
             </div>
           )}
         </div>
 
-        <div className="bg-zinc-100 p-4 rounded-xl border border-zinc-200">
-          <h4 className="text-zinc-600 text-xs font-bold mb-2 flex items-center gap-2">
+        <div className={cn("p-4 rounded-xl border", isDarkMode ? "bg-zinc-800 border-zinc-700" : "bg-zinc-100 border-zinc-200")}>
+          <h4 className={cn("text-xs font-bold mb-2 flex items-center gap-2", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>
             <Info className="w-3 h-3" /> Dica
           </h4>
-          <p className="text-zinc-500 text-[11px] leading-relaxed">
+          <p className={cn("text-[11px] leading-relaxed", isDarkMode ? "text-zinc-400" : "text-zinc-500")}>
             Selecione um nó para ver sugestões inteligentes de causas baseadas no contexto.
           </p>
         </div>
@@ -386,7 +397,7 @@ const Sidebar = () => {
   );
 };
 
-const Flow = () => {
+export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIsDarkMode: (val: boolean) => void }) => {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -700,7 +711,7 @@ const Flow = () => {
     const saved = localStorage.getItem('fta-project');
     if (saved) {
       const flow = JSON.parse(saved);
-      if (flow) {
+      if (flow && flow.nodes && flow.nodes.length > 0) {
         // Re-attach callbacks to loaded nodes
         const nodesWithCallbacks = (flow.nodes || []).map((node: Node) => ({
           ...node,
@@ -719,20 +730,28 @@ const Flow = () => {
       }
     }
 
-    const initialId = '1';
-    setNodes([
-      {
-        id: initialId,
-        type: 'topEvent',
-        data: { 
-          label: 'QUEDA DE ENERGIA NO CPD',
-          onOpenAddChildMenu,
-          onToggleLegend,
-        },
-        position: { x: 400, y: 50 },
-      },
-    ]);
+    // Start with empty canvas
+    setNodes([]);
+    setEdges([]);
   }, [setNodes, setEdges, setViewport]);
+
+  const newProject = useCallback(() => {
+    if (window.confirm('Tem certeza que deseja iniciar um novo projeto? Todo o progresso não salvo será perdido.')) {
+      setNodes([]);
+      setEdges([]);
+      setHistory([]);
+      setHistoryIndex(-1);
+      setSelectedNode(null);
+      setSelectedEdge(null);
+      setFullAnalysisResult(null);
+      localStorage.removeItem('fta-project');
+      localStorage.removeItem('last_full_analysis');
+      setTimeout(() => {
+        fitView();
+        takeSnapshot(); // Take a snapshot of the empty state
+      }, 100);
+    }
+  }, [setNodes, setEdges, takeSnapshot, setHistory, setHistoryIndex, fitView]);
 
   const saveProject = useCallback(() => {
     const flow = toObject();
@@ -1073,10 +1092,22 @@ const Flow = () => {
       position.y = Math.round(position.y / 20) * 20;
 
       const newNodeId = `${Date.now()}`;
-      let defaultLabel = 'Nova Causa';
+      let defaultLabel = 'NOVA CAUSA';
+      
+      // Map node types to their sidebar labels
+      const typeLabels: Record<string, string> = {
+        topEvent: 'EVENTO DE TOPO',
+        immediateCause: 'CAUSA IMEDIATA',
+        intermediateCause: 'CAUSA INTERMEDIÁRIA',
+        undevelopedEvent: 'EVENTO DESCARTADO',
+        basicCause: 'CAUSA BÁSICA',
+        contributingFactor: 'FATOR CONTRIBUINTE',
+        annotation: 'CAIXA DE TEXTO'
+      };
+
       if (type.includes('Gate')) defaultLabel = '';
       else if (type === 'transferIn' || type === 'transferOut') defaultLabel = 'A';
-      else if (type === 'annotation') defaultLabel = 'Nova Anotação';
+      else if (typeLabels[type]) defaultLabel = typeLabels[type];
 
       const newNode: Node = {
         id: newNodeId,
@@ -1318,7 +1349,7 @@ const Flow = () => {
   }, [selectedNode, setNodes, setEdges, takeSnapshot]);
 
   return (
-    <div className="flex-1 h-full flex relative">
+    <div className={cn("flex-1 h-full flex relative", isDarkMode ? "dark bg-zinc-950" : "bg-white")}>
       <div className="flex-1 relative" ref={reactFlowWrapper}>
         <ReactFlow
           nodes={nodes}
@@ -1343,9 +1374,13 @@ const Flow = () => {
           panOnScroll={true}
           minZoom={0.01}
           maxZoom={4}
-          className={interactionMode === 'pan' ? 'mode-pan' : 'mode-select'}
+          colorMode={isDarkMode ? 'dark' : 'light'}
+          className={cn(
+            interactionMode === 'pan' ? 'mode-pan' : 'mode-select',
+            isDarkMode ? 'bg-zinc-900' : 'bg-white'
+          )}
         >
-          {showGrid && <Background color="#e2e8f0" variant={BackgroundVariant.Lines} gap={20} />}
+          {showGrid && <Background color={isDarkMode ? "#334155" : "#e2e8f0"} variant={BackgroundVariant.Lines} gap={20} />}
           <Controls />
           <MiniMap 
             style={{ backgroundColor: '#fff' }} 
@@ -1362,8 +1397,11 @@ const Flow = () => {
           
           <Panel position="top-left" className="flex flex-col gap-2">
             <div className="flex flex-col gap-1">
-              <div className="bg-white border border-zinc-200 rounded-xl shadow-lg p-1 flex items-center gap-2 w-64">
-                <div className="pl-3 text-zinc-400">
+              <div className={cn(
+                "border rounded-xl shadow-lg p-1 flex items-center gap-2 w-64 transition-colors",
+                isDarkMode ? "bg-zinc-900 border-zinc-800" : "bg-white border-zinc-200"
+              )}>
+                <div className={cn("pl-3", isDarkMode ? "text-zinc-500" : "text-zinc-400")}>
                   <Search className="w-4 h-4" />
                 </div>
                 <input 
@@ -1372,7 +1410,10 @@ const Flow = () => {
                   placeholder="Buscar na árvore... (Ctrl+F)"
                   value={searchQuery}
                   onChange={(e) => handleSearch(e.target.value)}
-                  className="w-full bg-transparent border-none outline-none text-sm py-2 text-zinc-700 placeholder:text-zinc-400"
+                  className={cn(
+                    "w-full bg-transparent border-none outline-none text-sm py-2 placeholder:text-zinc-400 transition-colors",
+                    isDarkMode ? "text-zinc-200" : "text-zinc-700"
+                  )}
                 />
                 {searchQuery && (
                   <button 
@@ -1381,28 +1422,31 @@ const Flow = () => {
                       setSearchResults([]);
                       setSearchIndex(-1);
                     }}
-                    className="p-1 hover:bg-zinc-100 rounded-lg text-zinc-400 mr-1"
+                    className={cn("p-1 rounded-lg mr-1 transition-colors", isDarkMode ? "hover:bg-zinc-800 text-zinc-500" : "hover:bg-zinc-100 text-zinc-400")}
                   >
                     <X className="w-3 h-3" />
                   </button>
                 )}
               </div>
               {searchQuery && searchResults.length > 0 && (
-                <div className="bg-white/80 backdrop-blur-sm border border-zinc-200 rounded-lg shadow-sm px-3 py-1.5 flex items-center justify-between w-64">
-                  <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-tight">
+                <div className={cn(
+                  "backdrop-blur-sm border rounded-lg shadow-sm px-3 py-1.5 flex items-center justify-between w-64 transition-colors",
+                  isDarkMode ? "bg-zinc-900/80 border-zinc-800" : "bg-white/80 border-zinc-200"
+                )}>
+                  <span className={cn("text-[10px] font-bold uppercase tracking-tight", isDarkMode ? "text-zinc-400" : "text-zinc-500")}>
                     {searchIndex + 1} de {searchResults.length} encontrados
                   </span>
                   <div className="flex gap-1">
                     <button 
                       onClick={goToPrevSearchResult}
-                      className="p-1 hover:bg-zinc-100 rounded text-zinc-400"
+                      className={cn("p-1 rounded transition-colors", isDarkMode ? "hover:bg-zinc-800 text-zinc-500" : "hover:bg-zinc-100 text-zinc-400")}
                       title="Anterior"
                     >
                       <ChevronRight className="w-3 h-3 rotate-180" />
                     </button>
                     <button 
                       onClick={goToNextSearchResult}
-                      className="p-1 hover:bg-zinc-100 rounded text-zinc-400"
+                      className={cn("p-1 rounded transition-colors", isDarkMode ? "hover:bg-zinc-800 text-zinc-500" : "hover:bg-zinc-100 text-zinc-400")}
                       title="Próximo (Enter)"
                     >
                       <ChevronRight className="w-3 h-3" />
@@ -1411,7 +1455,10 @@ const Flow = () => {
                 </div>
               )}
               {searchQuery && searchResults.length === 0 && (
-                <div className="bg-white/80 backdrop-blur-sm border border-zinc-200 rounded-lg shadow-sm px-3 py-1.5 w-64">
+                <div className={cn(
+                  "backdrop-blur-sm border rounded-lg shadow-sm px-3 py-1.5 w-64 transition-colors",
+                  isDarkMode ? "bg-zinc-900/80 border-zinc-800" : "bg-white/80 border-zinc-200"
+                )}>
                   <span className="text-[10px] font-bold text-red-500 uppercase tracking-tight">
                     Nenhum item encontrado
                   </span>
@@ -1419,11 +1466,17 @@ const Flow = () => {
               )}
             </div>
 
-            <div className="bg-white border border-zinc-200 rounded-xl shadow-lg p-1 flex flex-col gap-1 w-fit">
-              <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest px-3 py-1">Auto-Layout</p>
+            <div className={cn(
+              "border rounded-xl shadow-lg p-1 flex flex-col gap-1 w-fit transition-colors",
+              isDarkMode ? "bg-zinc-900 border-zinc-800" : "bg-white border-zinc-200"
+            )}>
+              <p className={cn("text-[10px] font-bold uppercase tracking-widest px-3 py-1", isDarkMode ? "text-zinc-500" : "text-zinc-400")}>Auto-Layout</p>
               <button 
                 onClick={() => onLayout('TB')}
-                className="flex items-center gap-3 px-3 py-2 hover:bg-zinc-50 text-zinc-600 rounded-lg transition-colors text-sm"
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm",
+                  isDarkMode ? "hover:bg-zinc-800 text-zinc-300" : "hover:bg-zinc-50 text-zinc-600"
+                )}
                 title="Organizar Verticalmente"
               >
                 <LayoutTemplate className="w-4 h-4 text-indigo-500" />
@@ -1431,7 +1484,10 @@ const Flow = () => {
               </button>
               <button 
                 onClick={() => onLayout('LR')}
-                className="flex items-center gap-3 px-3 py-2 hover:bg-zinc-50 text-zinc-600 rounded-lg transition-colors text-sm"
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm",
+                  isDarkMode ? "hover:bg-zinc-800 text-zinc-300" : "hover:bg-zinc-50 text-zinc-600"
+                )}
                 title="Organizar Horizontalmente"
               >
                 <LayoutTemplate className="w-4 h-4 text-emerald-500 rotate-[-90deg]" />
@@ -1441,12 +1497,18 @@ const Flow = () => {
           </Panel>
 
           <Panel position="top-right" className="flex gap-2">
-            <div className="flex bg-white border border-zinc-200 rounded-lg shadow-sm overflow-hidden mr-2">
+            <div className={cn(
+              "flex border rounded-lg shadow-sm overflow-hidden mr-2 transition-colors",
+              isDarkMode ? "bg-zinc-900 border-zinc-800" : "bg-white border-zinc-200"
+            )}>
               <button 
                 onClick={() => setInteractionMode('pan')}
                 className={cn(
-                  "p-2 transition-colors border-r border-zinc-100",
-                  interactionMode === 'pan' ? "bg-indigo-50 text-indigo-600" : "hover:bg-zinc-50 text-zinc-600"
+                  "p-2 transition-colors border-r",
+                  isDarkMode ? "border-zinc-800" : "border-zinc-100",
+                  interactionMode === 'pan' 
+                    ? (isDarkMode ? "bg-indigo-900/40 text-indigo-400" : "bg-indigo-50 text-indigo-600") 
+                    : (isDarkMode ? "hover:bg-zinc-800 text-zinc-400" : "hover:bg-zinc-50 text-zinc-600")
                 )}
                 title="Modo Movimentar (Mão)"
               >
@@ -1456,7 +1518,9 @@ const Flow = () => {
                 onClick={() => setInteractionMode('select')}
                 className={cn(
                   "p-2 transition-colors",
-                  interactionMode === 'select' ? "bg-indigo-50 text-indigo-600" : "hover:bg-zinc-50 text-zinc-600"
+                  interactionMode === 'select' 
+                    ? (isDarkMode ? "bg-indigo-900/40 text-indigo-400" : "bg-indigo-50 text-indigo-600") 
+                    : (isDarkMode ? "hover:bg-zinc-800 text-zinc-400" : "hover:bg-zinc-50 text-zinc-600")
                 )}
                 title="Modo Selecionar (Seta)"
               >
@@ -1464,53 +1528,77 @@ const Flow = () => {
               </button>
             </div>
 
-            <div className="flex bg-white border border-zinc-200 rounded-lg shadow-sm overflow-hidden mr-2">
+            <div className={cn(
+              "flex border rounded-lg shadow-sm overflow-hidden mr-2 transition-colors",
+              isDarkMode ? "bg-zinc-900 border-zinc-800" : "bg-white border-zinc-200"
+            )}>
               <button 
                 onClick={undo}
                 disabled={historyIndex <= 0}
-                className="p-2 hover:bg-zinc-50 disabled:opacity-30 transition-colors border-r border-zinc-100"
+                className={cn(
+                  "p-2 disabled:opacity-30 transition-colors border-r",
+                  isDarkMode ? "border-zinc-800 hover:bg-zinc-800" : "border-zinc-100 hover:bg-zinc-50"
+                )}
                 title="Desfazer (Ctrl+Z)"
               >
-                <Undo2 className="w-4 h-4 text-zinc-600" />
+                <Undo2 className={cn("w-4 h-4", isDarkMode ? "text-zinc-400" : "text-zinc-600")} />
               </button>
               <button 
                 onClick={redo}
                 disabled={historyIndex >= history.length - 1}
-                className="p-2 hover:bg-zinc-50 disabled:opacity-30 transition-colors"
+                className={cn(
+                  "p-2 disabled:opacity-30 transition-colors",
+                  isDarkMode ? "hover:bg-zinc-800" : "hover:bg-zinc-50"
+                )}
                 title="Refazer (Ctrl+Y)"
               >
-                <Redo2 className="w-4 h-4 text-zinc-600" />
+                <Redo2 className={cn("w-4 h-4", isDarkMode ? "text-zinc-400" : "text-zinc-600")} />
               </button>
             </div>
 
-            <div className="flex bg-white border border-zinc-200 rounded-lg shadow-sm overflow-hidden mr-2">
+            <div className={cn(
+              "flex border rounded-lg shadow-sm overflow-hidden mr-2 transition-colors",
+              isDarkMode ? "bg-zinc-900 border-zinc-800" : "bg-white border-zinc-200"
+            )}>
               <button 
                 onClick={() => alignNodes('horizontal')}
-                className="p-2 hover:bg-zinc-50 transition-colors border-r border-zinc-100"
+                className={cn(
+                  "p-2 transition-colors border-r",
+                  isDarkMode ? "border-zinc-800 hover:bg-zinc-800" : "border-zinc-100 hover:bg-zinc-50"
+                )}
                 title="Alinhar Horizontalmente"
               >
-                <AlignCenter className="w-4 h-4 text-zinc-600 rotate-90" />
+                <AlignCenter className={cn("w-4 h-4 rotate-90", isDarkMode ? "text-zinc-400" : "text-zinc-600")} />
               </button>
               <button 
                 onClick={() => alignNodes('vertical')}
-                className="p-2 hover:bg-zinc-50 transition-colors border-r border-zinc-100"
+                className={cn(
+                  "p-2 transition-colors border-r",
+                  isDarkMode ? "border-zinc-800 hover:bg-zinc-800" : "border-zinc-100 hover:bg-zinc-50"
+                )}
                 title="Alinhar Verticalmente"
               >
-                <AlignCenter className="w-4 h-4 text-zinc-600" />
+                <AlignCenter className={cn("w-4 h-4", isDarkMode ? "text-zinc-400" : "text-zinc-600")} />
               </button>
               <button 
                 onClick={() => distributeNodes('horizontal')}
-                className="p-2 hover:bg-zinc-50 transition-colors border-r border-zinc-100"
+                className={cn(
+                  "p-2 transition-colors border-r",
+                  isDarkMode ? "border-zinc-800 hover:bg-zinc-800" : "border-zinc-100 hover:bg-zinc-50"
+                )}
                 title="Distribuir Horizontalmente"
               >
-                <AlignJustify className="w-4 h-4 text-zinc-600 rotate-90" />
+                <AlignJustify className={cn("w-4 h-4 rotate-90", isDarkMode ? "text-zinc-400" : "text-zinc-600")} />
               </button>
               <button 
                 onClick={() => distributeNodes('vertical')}
-                className="p-2 hover:bg-zinc-50 transition-colors"
+                className={cn(
+                  "p-2 transition-colors",
+                  isDarkMode ? "hover:bg-zinc-800" : "hover:bg-zinc-50"
+                )}
                 title="Distribuir Verticalmente"
               >
-                <AlignJustify className="w-4 h-4 text-zinc-600" />
+                <AlignJustify className={cn("w-4 h-4", isDarkMode ? "text-zinc-400" : "text-zinc-600")} />
               </button>
             </div>
 
@@ -1518,25 +1606,53 @@ const Flow = () => {
               onClick={() => setShowGrid(!showGrid)}
               className={cn(
                 "px-4 py-2 rounded-lg border flex items-center gap-2 text-sm transition-colors shadow-sm",
-                showGrid ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-white text-zinc-700 border-zinc-200"
+                showGrid 
+                  ? (isDarkMode ? "bg-emerald-900/40 text-emerald-400 border-emerald-800" : "bg-emerald-50 text-emerald-700 border-emerald-200") 
+                  : (isDarkMode ? "bg-zinc-900 text-zinc-400 border-zinc-800 hover:bg-zinc-800" : "bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50")
               )}
               title={showGrid ? "Ocultar Grade" : "Mostrar Grade"}
             >
               <Grid className="w-4 h-4" />
             </button>
 
+            <button 
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              className={cn(
+                "p-2 rounded-lg border transition-colors shadow-sm",
+                isDarkMode ? "bg-zinc-800 text-yellow-400 border-zinc-700 hover:bg-zinc-700" : "bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50"
+              )}
+              title={isDarkMode ? "Mudar para Modo Claro" : "Mudar para Modo Escuro"}
+            >
+              {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
+
             <div className="relative group/export">
-              <button className="bg-white hover:bg-zinc-50 text-zinc-700 px-4 py-2 rounded-lg border border-zinc-200 shadow-sm flex items-center gap-2 text-sm transition-colors">
+              <button className={cn(
+                "px-4 py-2 rounded-lg border shadow-sm flex items-center gap-2 text-sm transition-colors",
+                isDarkMode ? "bg-zinc-900 text-zinc-300 border-zinc-800 hover:bg-zinc-800" : "bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50"
+              )}>
                 <Download className="w-4 h-4" /> Exportar
               </button>
-              <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-zinc-200 rounded-xl shadow-xl opacity-0 invisible group-hover/export:opacity-100 group-hover/export:visible transition-all z-50 overflow-hidden">
-                <button onClick={exportPDF} className="w-full px-4 py-3 text-left text-sm text-zinc-600 hover:bg-zinc-50 flex items-center gap-3 transition-colors">
+              <div className={cn(
+                "absolute right-0 top-full mt-2 w-48 border rounded-xl shadow-xl opacity-0 invisible group-hover/export:opacity-100 group-hover/export:visible transition-all z-50 overflow-hidden",
+                isDarkMode ? "bg-zinc-900 border-zinc-800" : "bg-white border-zinc-200"
+              )}>
+                <button onClick={exportPDF} className={cn(
+                  "w-full px-4 py-3 text-left text-sm flex items-center gap-3 transition-colors",
+                  isDarkMode ? "text-zinc-400 hover:bg-zinc-800" : "text-zinc-600 hover:bg-zinc-50"
+                )}>
                   <FileDown className="w-4 h-4 text-red-500" /> PDF Documento
                 </button>
-                <button onClick={() => exportImage('png')} className="w-full px-4 py-3 text-left text-sm text-zinc-600 hover:bg-zinc-50 flex items-center gap-3 transition-colors border-t border-zinc-100">
+                <button onClick={() => exportImage('png')} className={cn(
+                  "w-full px-4 py-3 text-left text-sm flex items-center gap-3 transition-colors border-t",
+                  isDarkMode ? "text-zinc-400 hover:bg-zinc-800 border-zinc-800" : "text-zinc-600 hover:bg-zinc-50 border-zinc-100"
+                )}>
                   <ImageIcon className="w-4 h-4 text-blue-500" /> Imagem PNG
                 </button>
-                <button onClick={() => exportImage('jpeg')} className="w-full px-4 py-3 text-left text-sm text-zinc-600 hover:bg-zinc-50 flex items-center gap-3 transition-colors border-t border-zinc-100">
+                <button onClick={() => exportImage('jpeg')} className={cn(
+                  "w-full px-4 py-3 text-left text-sm flex items-center gap-3 transition-colors border-t",
+                  isDarkMode ? "text-zinc-400 hover:bg-zinc-800 border-zinc-800" : "text-zinc-600 hover:bg-zinc-50 border-zinc-100"
+                )}>
                   <ImageIcon className="w-4 h-4 text-emerald-500" /> Imagem JPG
                 </button>
               </div>
@@ -1544,7 +1660,10 @@ const Flow = () => {
             
             <button 
               onClick={handleFullAnalysis}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm transition-colors shadow-sm"
+              className={cn(
+                "px-4 py-2 rounded-lg flex items-center gap-2 text-sm transition-colors shadow-sm",
+                isDarkMode ? "bg-indigo-700 hover:bg-indigo-600 text-white" : "bg-indigo-600 hover:bg-indigo-700 text-white"
+              )}
               title="Análise Completa com IA"
             >
               <Zap className="w-4 h-4" /> Analisar Árvore
@@ -1552,14 +1671,31 @@ const Flow = () => {
 
             <button 
               onClick={() => setShowSuggestions(true)}
-              className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm transition-colors shadow-sm"
+              className={cn(
+                "px-4 py-2 rounded-lg flex items-center gap-2 text-sm transition-colors shadow-sm",
+                isDarkMode ? "bg-amber-600 hover:bg-amber-500 text-white" : "bg-amber-500 hover:bg-amber-600 text-white"
+              )}
             >
               <Lightbulb className="w-4 h-4" /> Modelos
             </button>
             
             <button 
+              onClick={newProject}
+              className={cn(
+                "px-4 py-2 rounded-lg border shadow-sm flex items-center gap-2 text-sm transition-colors",
+                isDarkMode ? "bg-zinc-900 text-zinc-300 border-zinc-800 hover:bg-zinc-800" : "bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50"
+              )}
+              title="Iniciar Novo Projeto"
+            >
+              <Plus className="w-4 h-4" /> Novo Projeto
+            </button>
+
+            <button 
               onClick={saveProject}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm transition-colors shadow-sm"
+              className={cn(
+                "px-4 py-2 rounded-lg flex items-center gap-2 text-sm transition-colors shadow-sm",
+                isDarkMode ? "bg-emerald-700 hover:bg-emerald-600 text-white" : "bg-emerald-600 hover:bg-emerald-700 text-white"
+              )}
             >
               <Save className="w-4 h-4" /> Salvar
             </button>
@@ -1700,20 +1836,26 @@ const Flow = () => {
       {/* Full Analysis Modal */}
       {showFullAnalysisModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-3xl max-h-[80vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-300">
-            <div className="p-6 border-b border-zinc-100 flex items-center justify-between bg-zinc-50">
+          <div className={cn(
+            "w-full max-w-3xl max-h-[80vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-300 border",
+            isDarkMode ? "bg-zinc-900 border-zinc-800" : "bg-white border-zinc-200"
+          )}>
+            <div className={cn(
+              "p-6 border-b flex items-center justify-between",
+              isDarkMode ? "bg-zinc-800 border-zinc-700" : "bg-zinc-50 border-zinc-100"
+            )}>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-indigo-100 rounded-2xl flex items-center justify-center">
                   <Zap className="w-5 h-5 text-indigo-600" />
                 </div>
                 <div>
-                  <h2 className="text-zinc-900 font-bold">Auditoria Técnica de FTA</h2>
-                  <p className="text-zinc-500 text-xs">Análise profunda gerada por Inteligência Artificial</p>
+                  <h2 className={cn("font-bold", isDarkMode ? "text-zinc-100" : "text-zinc-900")}>Auditoria Técnica de FTA</h2>
+                  <p className={cn("text-xs", isDarkMode ? "text-zinc-500" : "text-zinc-500")}>Análise profunda gerada por Inteligência Artificial</p>
                 </div>
               </div>
               <button 
                 onClick={() => setShowFullAnalysisModal(false)}
-                className="p-2 hover:bg-zinc-200 rounded-xl transition-colors text-zinc-400"
+                className={cn("p-2 rounded-xl transition-colors", isDarkMode ? "hover:bg-zinc-700 text-zinc-500" : "hover:bg-zinc-200 text-zinc-400")}
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1724,12 +1866,12 @@ const Flow = () => {
                 <div className="h-full flex flex-col items-center justify-center space-y-4 py-12">
                   <div className="w-12 h-12 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin" />
                   <div className="text-center">
-                    <p className="text-zinc-900 font-bold">Analisando sua Árvore de Falhas...</p>
-                    <p className="text-zinc-500 text-sm">Isso pode levar alguns segundos dependendo da complexidade.</p>
+                    <p className={cn("font-bold", isDarkMode ? "text-zinc-100" : "text-zinc-900")}>Analisando sua Árvore de Falhas...</p>
+                    <p className={cn("text-sm", isDarkMode ? "text-zinc-500" : "text-zinc-500")}>Isso pode levar alguns segundos dependendo da complexidade.</p>
                   </div>
                 </div>
               ) : fullAnalysisResult ? (
-                <div className="prose prose-zinc prose-sm max-w-none markdown-body">
+                <div className={cn("prose prose-sm max-w-none markdown-body", isDarkMode ? "prose-invert" : "prose-zinc")}>
                   <Markdown>{fullAnalysisResult}</Markdown>
                 </div>
               ) : (
@@ -1738,19 +1880,25 @@ const Flow = () => {
                     <Zap className="w-6 h-6 text-indigo-400" />
                   </div>
                   <div className="text-center">
-                    <p className="text-zinc-900 font-bold">Nenhuma análise disponível</p>
-                    <p className="text-zinc-500 text-sm">Clique no botão abaixo para gerar uma auditoria completa.</p>
+                    <p className={cn("font-bold", isDarkMode ? "text-zinc-100" : "text-zinc-900")}>Nenhuma análise disponível</p>
+                    <p className={cn("text-sm", isDarkMode ? "text-zinc-500" : "text-zinc-500")}>Clique no botão abaixo para gerar uma auditoria completa.</p>
                   </div>
                 </div>
               )}
             </div>
             
-            <div className="p-6 border-t border-zinc-100 bg-zinc-50 flex justify-between items-center">
+            <div className={cn(
+              "p-6 border-t flex justify-between items-center",
+              isDarkMode ? "bg-zinc-800 border-zinc-700" : "bg-zinc-50 border-zinc-100"
+            )}>
               <div className="flex gap-2">
                 <button 
                   onClick={copyToClipboard}
                   disabled={!fullAnalysisResult || isAnalyzingFull}
-                  className="flex items-center gap-2 px-4 py-2 bg-white border border-zinc-200 text-zinc-600 rounded-xl font-bold text-sm hover:bg-zinc-50 transition-colors disabled:opacity-50"
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-2 border rounded-xl font-bold text-sm transition-colors disabled:opacity-50",
+                    isDarkMode ? "bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700" : "bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50"
+                  )}
                 >
                   {isCopied ? (
                     <><Check className="w-4 h-4 text-emerald-500" /> Copiado!</>
@@ -1768,7 +1916,10 @@ const Flow = () => {
               </div>
               <button 
                 onClick={() => setShowFullAnalysisModal(false)}
-                className="px-6 py-2 bg-zinc-900 text-white rounded-xl font-bold text-sm hover:bg-zinc-800 transition-colors"
+                className={cn(
+                  "px-6 py-2 rounded-xl font-bold text-sm transition-colors",
+                  isDarkMode ? "bg-zinc-100 text-zinc-900 hover:bg-white" : "bg-zinc-900 text-white hover:bg-zinc-800"
+                )}
               >
                 Fechar
               </button>
@@ -1970,7 +2121,7 @@ const Flow = () => {
   );
 };
 
-const Header = ({ onOpenHelp }: { onOpenHelp: () => void }) => {
+const Header = ({ isDarkMode, toggleDarkMode, onOpenHelp }: { isDarkMode: boolean, toggleDarkMode: () => void, onOpenHelp: () => void }) => {
   const { toObject, setNodes, setEdges, setViewport } = useReactFlow();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -2016,18 +2167,32 @@ const Header = ({ onOpenHelp }: { onOpenHelp: () => void }) => {
   }, [setNodes, setEdges, setViewport]);
 
   return (
-    <header className="h-16 border-b border-zinc-200 flex items-center justify-between px-8 bg-white/80 backdrop-blur-md z-10">
+    <header className={cn(
+      "h-16 border-b flex items-center justify-between px-8 backdrop-blur-md z-10 transition-colors",
+      isDarkMode ? "bg-zinc-900/80 border-zinc-800" : "bg-white/80 border-zinc-200"
+    )}>
       <div className="flex items-center gap-4">
         <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-900/10">
           <Zap className="w-6 h-6 text-white" />
         </div>
         <div>
-          <h1 className="text-lg font-bold tracking-tight text-zinc-800">FTA Maintenance Pro</h1>
-          <p className="text-zinc-400 text-[10px] uppercase tracking-widest font-bold">Análise Inteligente de Árvore de Falhas</p>
+          <h1 className={cn("text-lg font-bold tracking-tight", isDarkMode ? "text-zinc-100" : "text-zinc-800")}>FTA Maintenance Pro</h1>
+          <p className={cn("text-[10px] uppercase tracking-widest font-bold", isDarkMode ? "text-zinc-500" : "text-zinc-400")}>Análise Inteligente de Árvore de Falhas</p>
         </div>
       </div>
       
       <nav className="flex items-center gap-4">
+        <button 
+          onClick={toggleDarkMode}
+          className={cn(
+            "p-2 rounded-lg border transition-colors shadow-sm",
+            isDarkMode ? "bg-zinc-800 text-yellow-400 border-zinc-700 hover:bg-zinc-700" : "bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50"
+          )}
+          title={isDarkMode ? "Mudar para Modo Claro" : "Mudar para Modo Escuro"}
+        >
+          {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+        </button>
+
         <input 
           type="file" 
           ref={fileInputRef} 
@@ -2037,7 +2202,10 @@ const Header = ({ onOpenHelp }: { onOpenHelp: () => void }) => {
         />
         <button 
           onClick={onOpen}
-          className="text-zinc-500 hover:text-emerald-600 transition-colors flex items-center gap-2 text-sm font-medium bg-zinc-50 px-3 py-2 rounded-lg border border-zinc-200"
+          className={cn(
+            "transition-colors flex items-center gap-2 text-sm font-medium px-3 py-2 rounded-lg border",
+            isDarkMode ? "bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700" : "bg-zinc-50 border-zinc-200 text-zinc-500 hover:text-emerald-600"
+          )}
         >
           <FolderOpen className="w-4 h-4" /> Abrir Projeto
         </button>
@@ -2047,10 +2215,10 @@ const Header = ({ onOpenHelp }: { onOpenHelp: () => void }) => {
         >
           <Save className="w-4 h-4" /> Salvar Projeto
         </button>
-        <div className="h-6 w-px bg-zinc-200 mx-2" />
+        <div className={cn("h-6 w-px mx-2", isDarkMode ? "bg-zinc-800" : "bg-zinc-200")} />
         <button 
           onClick={onOpenHelp}
-          className="text-zinc-500 hover:text-emerald-600 transition-colors flex items-center gap-2 text-sm font-medium"
+          className={cn("transition-colors flex items-center gap-2 text-sm font-medium", isDarkMode ? "text-zinc-400 hover:text-emerald-400" : "text-zinc-500 hover:text-emerald-600")}
         >
           <HelpCircle className="w-4 h-4" /> Ajuda
         </button>
@@ -2059,35 +2227,41 @@ const Header = ({ onOpenHelp }: { onOpenHelp: () => void }) => {
   );
 };
 
-const HelpModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) => {
+const HelpModal = ({ isOpen, onClose, isDarkMode }: { isOpen: boolean, onClose: () => void, isDarkMode: boolean }) => {
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[200] flex items-center justify-center p-6">
-      <div className="bg-white border border-zinc-200 rounded-3xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-        <div className="p-6 border-b border-zinc-100 flex items-center justify-between bg-zinc-50">
+      <div className={cn(
+        "w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 rounded-3xl shadow-2xl border",
+        isDarkMode ? "bg-zinc-900 border-zinc-800" : "bg-white border-zinc-200"
+      )}>
+        <div className={cn(
+          "p-6 border-b flex items-center justify-between",
+          isDarkMode ? "bg-zinc-800 border-zinc-700" : "bg-zinc-50 border-zinc-100"
+        )}>
           <div>
-            <h2 className="text-xl font-bold flex items-center gap-3 text-zinc-800">
+            <h2 className={cn("text-xl font-bold flex items-center gap-3", isDarkMode ? "text-zinc-100" : "text-zinc-800")}>
               <HelpCircle className="w-6 h-6 text-emerald-600" /> 
               Guia de Configuração de API
             </h2>
-            <p className="text-zinc-500 text-sm mt-1">Como obter e configurar suas chaves de Inteligência Artificial</p>
+            <p className={cn("text-sm mt-1", isDarkMode ? "text-zinc-500" : "text-zinc-500")}>Como obter e configurar suas chaves de Inteligência Artificial</p>
           </div>
           <button 
             onClick={onClose}
-            className="p-2 hover:bg-zinc-200 rounded-full transition-colors"
+            className={cn("p-2 rounded-full transition-colors", isDarkMode ? "hover:bg-zinc-700 text-zinc-500" : "hover:bg-zinc-200 text-zinc-400")}
           >
-            <X className="w-6 h-6 text-zinc-400" />
+            <X className="w-6 h-6" />
           </button>
         </div>
         
         <div className="flex-1 overflow-y-auto p-8 space-y-8">
           <section className="space-y-4">
-            <h3 className="text-lg font-bold text-zinc-800 flex items-center gap-2">
+            <h3 className={cn("text-lg font-bold flex items-center gap-2", isDarkMode ? "text-zinc-200" : "text-zinc-800")}>
               <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600">1</div>
               Google Gemini (Recomendado)
             </h3>
-            <div className="pl-10 space-y-3 text-zinc-600 text-sm leading-relaxed">
+            <div className={cn("pl-10 space-y-3 text-sm leading-relaxed", isDarkMode ? "text-zinc-400" : "text-zinc-600")}>
               <p>O Gemini oferece um nível gratuito generoso e é o provedor padrão desta aplicação.</p>
               <ol className="list-decimal pl-4 space-y-2">
                 <li>Acesse o <strong><a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-emerald-600 hover:underline">Google AI Studio</a></strong>.</li>
@@ -2100,11 +2274,11 @@ const HelpModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }
           </section>
 
           <section className="space-y-4">
-            <h3 className="text-lg font-bold text-zinc-800 flex items-center gap-2">
+            <h3 className={cn("text-lg font-bold flex items-center gap-2", isDarkMode ? "text-zinc-200" : "text-zinc-800")}>
               <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center text-emerald-600">2</div>
               OpenAI ChatGPT (Alternativo)
             </h3>
-            <div className="pl-10 space-y-3 text-zinc-600 text-sm leading-relaxed">
+            <div className={cn("pl-10 space-y-3 text-sm leading-relaxed", isDarkMode ? "text-zinc-400" : "text-zinc-600")}>
               <p>Você também pode usar o GPT-3.5 ou GPT-4 da OpenAI.</p>
               <ol className="list-decimal pl-4 space-y-2">
                 <li>Acesse a <strong><a href="https://platform.openai.com/api-keys" target="_blank" className="text-emerald-600 hover:underline">Plataforma OpenAI</a></strong>.</li>
@@ -2118,31 +2292,40 @@ const HelpModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }
           </section>
 
           <section className="space-y-4">
-            <h3 className="text-lg font-bold text-zinc-800 flex items-center gap-2">
+            <h3 className={cn("text-lg font-bold flex items-center gap-2", isDarkMode ? "text-zinc-200" : "text-zinc-800")}>
               <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center text-amber-600">3</div>
               Como Adicionar na Aplicação
             </h3>
-            <div className="pl-10 space-y-3 text-zinc-600 text-sm leading-relaxed">
+            <div className={cn("pl-10 space-y-3 text-sm leading-relaxed", isDarkMode ? "text-zinc-400" : "text-zinc-600")}>
               <ol className="list-decimal pl-4 space-y-2">
                 <li>Na barra lateral esquerda, clique no ícone de engrenagem (<Settings2 className="w-3 h-3 inline" />) na seção <strong>Inteligência Artificial</strong>.</li>
                 <li>Selecione o <strong>Provedor Ativo</strong> que deseja utilizar.</li>
                 <li>Cole sua chave no campo correspondente (Gemini ou OpenAI).</li>
                 <li>Clique em <strong>"Salvar"</strong>. A página irá recarregar para aplicar as novas configurações.</li>
               </ol>
-              <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl mt-4">
-                <p className="text-amber-800 text-xs font-bold flex items-center gap-2 mb-1">
+              <div className={cn(
+                "p-4 rounded-xl mt-4 border",
+                isDarkMode ? "bg-amber-900/10 border-amber-900/20" : "bg-amber-50 border-amber-100"
+              )}>
+                <p className={cn("text-xs font-bold flex items-center gap-2 mb-1", isDarkMode ? "text-amber-400" : "text-amber-800")}>
                   <AlertTriangle className="w-3 h-3" /> Nota de Segurança
                 </p>
-                <p className="text-amber-700 text-[11px]">Sua chave é salva apenas no seu navegador (localStorage). Ela nunca é enviada para nossos servidores, exceto para realizar as consultas de IA diretamente aos provedores.</p>
+                <p className={cn("text-[11px]", isDarkMode ? "text-amber-500/80" : "text-amber-700")}>Sua chave é salva apenas no seu navegador (localStorage). Ela nunca é enviada para nossos servidores, exceto para realizar as consultas de IA diretamente aos provedores.</p>
               </div>
             </div>
           </section>
         </div>
         
-        <div className="p-6 border-t border-zinc-100 bg-zinc-50 flex justify-end">
+        <div className={cn(
+          "p-6 border-t flex justify-center",
+          isDarkMode ? "bg-zinc-800 border-zinc-700" : "bg-zinc-50 border-zinc-100"
+        )}>
           <button 
             onClick={onClose}
-            className="bg-zinc-800 text-white px-6 py-2 rounded-xl font-bold hover:bg-zinc-700 transition-all shadow-lg"
+            className={cn(
+              "px-8 py-2 rounded-xl font-bold transition-all shadow-lg",
+              isDarkMode ? "bg-emerald-600 text-white hover:bg-emerald-500" : "bg-zinc-800 text-white hover:bg-zinc-700"
+            )}
           >
             Entendi, vamos lá!
           </button>
@@ -2154,19 +2337,38 @@ const HelpModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }
 
 export default function App() {
   const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    return localStorage.getItem('fta-dark-mode') === 'true';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('fta-dark-mode', isDarkMode.toString());
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDarkMode]);
 
   return (
-    <div className="w-full h-screen flex bg-white text-zinc-900 font-sans overflow-hidden">
+    <div className={cn(
+      "w-full h-screen flex font-sans overflow-hidden transition-colors",
+      isDarkMode ? "bg-zinc-950 text-zinc-100" : "bg-white text-zinc-900"
+    )}>
       <ReactFlowProvider>
-        <Sidebar />
+        <Sidebar isDarkMode={isDarkMode} />
         <div className="flex-1 flex flex-col">
-          <Header onOpenHelp={() => setIsHelpOpen(true)} />
+          <Header 
+            isDarkMode={isDarkMode} 
+            toggleDarkMode={() => setIsDarkMode(!isDarkMode)} 
+            onOpenHelp={() => setIsHelpOpen(true)} 
+          />
           
-          <main className="flex-1 relative bg-white">
-            <Flow />
+          <main className={cn("flex-1 relative transition-colors", isDarkMode ? "bg-zinc-900" : "bg-white")}>
+            <Flow isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} />
           </main>
         </div>
-        <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
+        <HelpModal isDarkMode={isDarkMode} isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
       </ReactFlowProvider>
     </div>
   );
