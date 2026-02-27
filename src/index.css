@@ -23,15 +23,27 @@ body {
 }
 
 .react-flow__controls {
-  @apply !bg-white !border-zinc-200 !shadow-lg !rounded-xl overflow-hidden !m-4;
+  @apply !bg-white !border-zinc-200 !shadow-lg !rounded-xl overflow-hidden !m-4 transition-colors;
+}
+
+.dark .react-flow__controls {
+  @apply !bg-zinc-800 !border-zinc-700;
 }
 
 .react-flow__controls-button {
   @apply !bg-white !border-zinc-200 !fill-zinc-600 hover:!bg-zinc-50 !transition-colors !border-b-0 last:!border-b-0;
 }
 
+.dark .react-flow__controls-button {
+  @apply !bg-zinc-800 !border-zinc-700 !fill-zinc-400 hover:!bg-zinc-700;
+}
+
 .react-flow__minimap {
-  @apply !bg-white !border-zinc-200 !shadow-xl !rounded-2xl !m-4 overflow-hidden;
+  @apply !bg-white !border-zinc-200 !shadow-xl !rounded-2xl !m-4 overflow-hidden transition-colors;
+}
+
+.dark .react-flow__minimap {
+  @apply !bg-zinc-900 !border-zinc-800;
 }
 
 .react-flow__panel {
@@ -53,4 +65,17 @@ body {
 
 .mode-select .react-flow__pane {
   cursor: crosshair !important;
+}
+
+.markdown-node p {
+  margin: 0;
+  display: inline;
+}
+
+.markdown-node strong {
+  font-weight: 800;
+}
+
+.markdown-node em {
+  font-style: italic;
 }

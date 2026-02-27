@@ -55,6 +55,8 @@ import {
   AlignCenter,
   AlignRight,
   AlignJustify,
+  Bold,
+  Italic,
   ArrowUp,
   ArrowDown,
   Copy,
@@ -227,7 +229,7 @@ const Sidebar = ({ isDarkMode }: { isDarkMode: boolean }) => {
           </div>
         </div>
 
-        <div className={cn("pt-4 border-t space-y-2", isDarkMode ? "border-zinc-800" : "border-zinc-200")}>
+        <div className={cn("pt-4 border-t space-y-2", isDarkMode ? "border-white/20" : "border-zinc-200")}>
           <h3 className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-zinc-400" : "text-zinc-500")}>Portões Lógicos</h3>
           <div className="grid grid-cols-2 gap-2">
             <div
@@ -253,7 +255,7 @@ const Sidebar = ({ isDarkMode }: { isDarkMode: boolean }) => {
           </div>
         </div>
 
-        <div className={cn("pt-4 border-t space-y-2", isDarkMode ? "border-zinc-800" : "border-zinc-200")}>
+        <div className={cn("pt-4 border-t space-y-2", isDarkMode ? "border-white/20" : "border-zinc-200")}>
           <h3 className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-zinc-400" : "text-zinc-500")}>Transferência</h3>
           <div className="grid grid-cols-2 gap-2">
             <div
@@ -279,7 +281,7 @@ const Sidebar = ({ isDarkMode }: { isDarkMode: boolean }) => {
           </div>
         </div>
 
-        <div className={cn("pt-4 border-t space-y-2", isDarkMode ? "border-zinc-800" : "border-zinc-200")}>
+        <div className={cn("pt-4 border-t space-y-2", isDarkMode ? "border-white/20" : "border-zinc-200")}>
           <h3 className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-zinc-400" : "text-zinc-500")}>Anotação</h3>
           <div
             className={cn(
@@ -294,7 +296,7 @@ const Sidebar = ({ isDarkMode }: { isDarkMode: boolean }) => {
         </div>
       </div>
 
-      <div className={cn("mt-auto pt-6 border-t space-y-4", isDarkMode ? "border-zinc-800" : "border-zinc-200")}>
+      <div className={cn("mt-auto pt-6 border-t space-y-4", isDarkMode ? "border-white/20" : "border-zinc-200")}>
         <div className={cn("p-4 rounded-xl border", isDarkMode ? "bg-zinc-800 border-zinc-700" : "bg-zinc-100 border-zinc-200")}>
           <div className="flex items-center justify-between mb-2">
             <h4 className={cn("text-xs font-bold flex items-center gap-2", isDarkMode ? "text-zinc-300" : "text-zinc-600")}>
@@ -411,6 +413,32 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<Edge | null>(null);
   const [editValue, setEditValue] = useState('');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const applyFormatting = (type: 'bold' | 'italic') => {
+    if (!textareaRef.current) return;
+    const textarea = textareaRef.current;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = editValue;
+    const selectedText = text.substring(start, end);
+    
+    let formattedText = '';
+    if (type === 'bold') {
+      formattedText = `**${selectedText}**`;
+    } else {
+      formattedText = `*${selectedText}*`;
+    }
+    
+    const newValue = text.substring(0, start) + formattedText + text.substring(end);
+    setEditValue(newValue);
+    
+    // Reset focus and selection
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + (type === 'bold' ? 2 : 1), end + (type === 'bold' ? 2 : 1));
+    }, 0);
+  };
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isAnalyzingFull, setIsAnalyzingFull] = useState(false);
   const [fullAnalysisResult, setFullAnalysisResult] = useState<string | null>(null);
@@ -977,13 +1005,16 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
         return;
       }
 
+      const isMod = event.ctrlKey || event.metaKey;
+      const key = event.key.toLowerCase();
+
       // Move nodes with arrows
       const selectedNodes = nodes.filter(n => n.selected);
-      if (selectedNodes.length > 0 && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+      if (selectedNodes.length > 0 && ['arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(key)) {
         event.preventDefault();
         const step = event.shiftKey ? 40 : 10;
-        const dx = event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0;
-        const dy = event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0;
+        const dx = key === 'arrowleft' ? -step : key === 'arrowright' ? step : 0;
+        const dy = key === 'arrowup' ? -step : key === 'arrowdown' ? step : 0;
         
         setNodes(nds => nds.map(node => {
           if (node.selected) {
@@ -998,7 +1029,7 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
       }
 
       // Copy/Paste
-      if ((event.ctrlKey || event.metaKey) && event.key === 'c') {
+      if (isMod && key === 'c') {
         const selected = nodes.filter(n => n.selected);
         if (selected.length > 0) {
           setCopiedNodes(selected);
@@ -1009,7 +1040,7 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
         }
       }
 
-      if ((event.ctrlKey || event.metaKey) && event.key === 'v') {
+      if (isMod && key === 'v') {
         if (copiedNodes.length > 0) {
           takeSnapshot();
           const idMap: Record<string, string> = {};
@@ -1038,7 +1069,7 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
       }
 
       // Enter to edit
-      if (event.key === 'Enter' && selectedNodes.length === 1) {
+      if (key === 'enter' && selectedNodes.length === 1) {
         const node = selectedNodes[0];
         if (!node.type?.includes('Gate')) {
           setSelectedNode(node);
@@ -1047,7 +1078,7 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
       }
 
       // Delete
-      if (event.key === 'Delete' || event.key === 'Backspace') {
+      if (key === 'delete' || key === 'backspace') {
         if (selectedNodes.length > 0) {
           deleteSelectedElements();
         } else if (selectedEdge) {
@@ -1056,13 +1087,13 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
       }
 
       // Undo/Redo
-      if ((event.ctrlKey || event.metaKey) && event.key === 'z') {
+      if (isMod && key === 'z') {
         if (event.shiftKey) {
           redo();
         } else {
           undo();
         }
-      } else if ((event.ctrlKey || event.metaKey) && event.key === 'y') {
+      } else if (isMod && key === 'y') {
         redo();
       }
     };
@@ -1732,14 +1763,38 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-zinc-500 text-xs font-bold uppercase tracking-widest">Editar Elemento</h3>
-                  <button 
-                    onClick={deleteSelected}
-                    className="text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button 
+                      onClick={() => applyFormatting('bold')}
+                      className={cn(
+                        "p-1.5 rounded hover:bg-zinc-100 transition-colors",
+                        isDarkMode ? "text-zinc-400 hover:bg-zinc-800" : "text-zinc-600 hover:bg-zinc-100"
+                      )}
+                      title="Negrito"
+                    >
+                      <Bold className="w-4 h-4" />
+                    </button>
+                    <button 
+                      onClick={() => applyFormatting('italic')}
+                      className={cn(
+                        "p-1.5 rounded hover:bg-zinc-100 transition-colors",
+                        isDarkMode ? "text-zinc-400 hover:bg-zinc-800" : "text-zinc-600 hover:bg-zinc-100"
+                      )}
+                      title="Itálico"
+                    >
+                      <Italic className="w-4 h-4" />
+                    </button>
+                    <div className="w-px h-4 bg-zinc-200 mx-1" />
+                    <button 
+                      onClick={deleteSelected}
+                      className="text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
                 <textarea
+                  ref={textareaRef}
                   value={editValue}
                   onChange={(e) => setEditValue(e.target.value)}
                   className="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-3 text-zinc-900 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none resize-none h-24"

@@ -3,6 +3,7 @@ import { Handle, Position, NodeProps } from '@xyflow/react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { Plus } from 'lucide-react';
+import Markdown from 'react-markdown';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -103,8 +104,8 @@ const BaseNode = ({
       <Plus className="w-4 h-4" />
     </button>
 
-    <div className="flex flex-col items-center justify-center min-h-[45px] leading-tight whitespace-pre-wrap">
-      {data.label}
+    <div className="flex flex-col items-center justify-center min-h-[45px] leading-tight markdown-node">
+      <Markdown>{data.label as string}</Markdown>
     </div>
     {showBottomHandle && <Handle type="source" position={Position.Bottom} className="w-2.5 h-2.5 bg-zinc-400 border-white !bottom-[-5px]" />}
   </div>
@@ -274,6 +275,8 @@ export const AnnotationNode = memo(({ data, selected }: NodeProps) => (
     "px-3 py-2 min-w-[100px] text-center transition-all relative group",
     selected ? "outline outline-1 outline-emerald-500/50 rounded-md bg-emerald-50/10" : "hover:outline hover:outline-1 hover:outline-zinc-200 hover:rounded-md"
   )}>
-    <div className="text-sm font-medium text-zinc-700 whitespace-pre-wrap">{(data.label as string) || 'Texto...'}</div>
+    <div className="text-sm font-medium text-zinc-700 markdown-node">
+      <Markdown>{(data.label as string) || 'Texto...'}</Markdown>
+    </div>
   </div>
 ));
