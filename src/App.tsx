@@ -1164,40 +1164,45 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
     const nodes = getNodes();
     if (nodes.length === 0) return;
 
-    const filter = (node: HTMLElement) => {
-      const exclusionClasses = [
-        'react-flow__panel', 
-        'react-flow__controls', 
-        'react-flow__minimap', 
-        'react-flow__attribution',
-        'export-ignore'
-      ];
-      return !exclusionClasses.some(cls => node.classList?.contains && node.classList.contains(cls));
-    };
+    // Target the viewport directly to avoid panels and controls
+    const viewportElement = reactFlowWrapper.current.querySelector('.react-flow__viewport') as HTMLElement;
+    if (!viewportElement) return;
 
     try {
       const bounds = getNodesBounds(nodes);
-      const padding = 100;
-      const width = bounds.width + padding * 2;
+      
+      // Check if any node has a legend to expand the bounds to the left
+      let minX = bounds.x;
+      nodes.forEach(node => {
+        if (node.data?.showLegend) {
+          // Legend is to the left. It has mr-6 (24px) or mr-4 (16px) and some width.
+          // Let's expand by 160px to be safe.
+          minX = Math.min(minX, node.position.x - 160);
+        }
+      });
+
+      const padding = 80;
+      const expandedWidth = (bounds.x + bounds.width) - minX;
+      const width = expandedWidth + padding * 2;
       const height = bounds.height + padding * 2;
       
       const options = { 
-        backgroundColor: '#ffffff', 
+        backgroundColor: isDarkMode ? '#09090b' : '#ffffff', 
         quality: 1, 
-        pixelRatio: 3, // High resolution
-        filter,
+        pixelRatio: 2, 
         width,
         height,
         style: {
           width: `${width}px`,
           height: `${height}px`,
-          transform: `translate(${-bounds.x + padding}px, ${-bounds.y + padding}px)`,
+          // This transform "resets" the viewport to show exactly our expanded bounds
+          transform: `translate(${-minX + padding}px, ${-bounds.y + padding}px) scale(1)`,
         }
       };
       
       const dataUrl = format === 'png' 
-        ? await toPng(reactFlowWrapper.current, options)
-        : await toJpeg(reactFlowWrapper.current, options);
+        ? await toPng(viewportElement, options)
+        : await toJpeg(viewportElement, options);
       
       const link = document.createElement('a');
       link.download = `fta-export-${Date.now()}.${format}`;
@@ -1214,34 +1219,35 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
     const nodes = getNodes();
     if (nodes.length === 0) return;
 
-    const filter = (node: HTMLElement) => {
-      const exclusionClasses = [
-        'react-flow__panel', 
-        'react-flow__controls', 
-        'react-flow__minimap', 
-        'react-flow__attribution',
-        'export-ignore'
-      ];
-      return !exclusionClasses.some(cls => node.classList?.contains && node.classList.contains(cls));
-    };
+    const viewportElement = reactFlowWrapper.current.querySelector('.react-flow__viewport') as HTMLElement;
+    if (!viewportElement) return;
 
     try {
       const bounds = getNodesBounds(nodes);
-      const padding = 100;
-      const width = bounds.width + padding * 2;
+      
+      // Check if any node has a legend to expand the bounds to the left
+      let minX = bounds.x;
+      nodes.forEach(node => {
+        if (node.data?.showLegend) {
+          minX = Math.min(minX, node.position.x - 160);
+        }
+      });
+
+      const padding = 80;
+      const expandedWidth = (bounds.x + bounds.width) - minX;
+      const width = expandedWidth + padding * 2;
       const height = bounds.height + padding * 2;
       
-      const dataUrl = await toPng(reactFlowWrapper.current, { 
+      const dataUrl = await toPng(viewportElement, { 
         backgroundColor: '#ffffff', 
         quality: 1, 
-        pixelRatio: 3, // High resolution
-        filter,
+        pixelRatio: 2,
         width,
         height,
         style: {
           width: `${width}px`,
           height: `${height}px`,
-          transform: `translate(${-bounds.x + padding}px, ${-bounds.y + padding}px)`,
+          transform: `translate(${-minX + padding}px, ${-bounds.y + padding}px) scale(1)`,
         }
       });
       

@@ -112,7 +112,7 @@ const BaseNode = ({
   </div>
 );
 
-export const TopEventNode = memo(({ id, data, selected }: NodeProps) => (
+export const TopEventNode = memo(({ id, data, selected }: NodeProps<any>) => (
   <BaseNode 
     id={id}
     data={data} 
@@ -123,7 +123,7 @@ export const TopEventNode = memo(({ id, data, selected }: NodeProps) => (
   />
 ));
 
-export const ImmediateCauseNode = memo(({ id, data, selected }: NodeProps) => (
+export const ImmediateCauseNode = memo(({ id, data, selected }: NodeProps<any>) => (
   <BaseNode 
     id={id}
     data={data} 
@@ -133,7 +133,7 @@ export const ImmediateCauseNode = memo(({ id, data, selected }: NodeProps) => (
   />
 ));
 
-export const IntermediateCauseNode = memo(({ id, data, selected }: NodeProps) => (
+export const IntermediateCauseNode = memo(({ id, data, selected }: NodeProps<any>) => (
   <BaseNode 
     id={id}
     data={data} 
@@ -143,7 +143,7 @@ export const IntermediateCauseNode = memo(({ id, data, selected }: NodeProps) =>
   />
 ));
 
-export const UndevelopedEventNode = memo(({ id, data, selected }: NodeProps) => (
+export const UndevelopedEventNode = memo(({ id, data, selected }: NodeProps<any>) => (
   <div className="relative">
     <BaseNode 
       id={id}
@@ -160,7 +160,7 @@ export const UndevelopedEventNode = memo(({ id, data, selected }: NodeProps) => 
   </div>
 ));
 
-export const BasicCauseNode = memo(({ id, data, selected }: NodeProps) => (
+export const BasicCauseNode = memo(({ id, data, selected }: NodeProps<any>) => (
   <div className="relative">
     <BaseNode 
       id={id}
@@ -177,7 +177,7 @@ export const BasicCauseNode = memo(({ id, data, selected }: NodeProps) => (
   </div>
 ));
 
-export const ContributingFactorNode = memo(({ id, data, selected }: NodeProps) => (
+export const ContributingFactorNode = memo(({ id, data, selected }: NodeProps<any>) => (
   <BaseNode 
     id={id}
     data={data} 
@@ -187,7 +187,7 @@ export const ContributingFactorNode = memo(({ id, data, selected }: NodeProps) =
   />
 ));
 
-export const AndGateNode = memo(({ selected }: NodeProps) => (
+export const AndGateNode = memo(({ selected }: NodeProps<any>) => (
   <div className={cn(
     "w-[60px] h-[60px] relative transition-all flex items-center justify-center",
     selected ? "scale-110" : ""
@@ -208,7 +208,7 @@ export const AndGateNode = memo(({ selected }: NodeProps) => (
   </div>
 ));
 
-export const OrGateNode = memo(({ selected }: NodeProps) => (
+export const OrGateNode = memo(({ selected }: NodeProps<any>) => (
   <div className={cn(
     "w-[60px] h-[60px] relative transition-all flex items-center justify-center",
     selected ? "scale-110" : ""
@@ -229,7 +229,7 @@ export const OrGateNode = memo(({ selected }: NodeProps) => (
   </div>
 ));
 
-export const TransferInNode = memo(({ data, selected }: NodeProps) => (
+export const TransferInNode = memo(({ data, selected }: NodeProps<any>) => (
   <div className={cn(
     "w-[60px] h-[60px] relative transition-all flex items-center justify-center",
     selected ? "scale-110" : ""
@@ -250,7 +250,7 @@ export const TransferInNode = memo(({ data, selected }: NodeProps) => (
   </div>
 ));
 
-export const TransferOutNode = memo(({ data, selected }: NodeProps) => (
+export const TransferOutNode = memo(({ data, selected }: NodeProps<any>) => (
   <div className={cn(
     "w-[60px] h-[60px] relative transition-all flex items-center justify-center",
     selected ? "scale-110" : ""
@@ -271,11 +271,40 @@ export const TransferOutNode = memo(({ data, selected }: NodeProps) => (
   </div>
 ));
 
-export const AnnotationNode = memo(({ data, selected }: NodeProps) => (
+export const AnnotationNode = memo(({ id, data, selected }: NodeProps<any>) => (
   <div className={cn(
     "px-3 py-2 min-w-[100px] text-center transition-all relative group",
     selected ? "outline outline-1 outline-emerald-500/50 rounded-md bg-emerald-50/10" : "hover:outline hover:outline-1 hover:outline-zinc-200 hover:rounded-md"
   )}>
+    {/* Legend */}
+    {data.showLegend && (
+      <div className="absolute right-full mr-4 top-1/2 -translate-y-1/2 flex items-center animate-in fade-in slide-in-from-right-2">
+        <div className="bg-zinc-800 text-white border-zinc-900 px-3 py-1.5 rounded-lg text-[10px] whitespace-nowrap font-extrabold border-2 shadow-md uppercase tracking-tight">
+          Anotação
+        </div>
+        <div className="w-4 h-0.5 bg-zinc-800 relative -ml-0.5">
+          <div className="absolute right-0 top-1/2 -translate-y-1/2 border-y-[4px] border-y-transparent border-l-[6px] border-l-zinc-800" />
+        </div>
+      </div>
+    )}
+
+    {/* Toggle Legend Button */}
+    <button 
+      onClick={(e) => {
+        e.stopPropagation();
+        data.onToggleLegend?.(id);
+      }}
+      className={cn(
+        "absolute -left-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center transition-all shadow-sm z-50 border opacity-0 group-hover:opacity-100",
+        data.showLegend 
+          ? "bg-zinc-800 text-white border-zinc-700 hover:bg-zinc-700" 
+          : "bg-zinc-100 text-zinc-600 border-zinc-200 hover:bg-white"
+      )}
+      title={data.showLegend ? "Remover legenda" : "Adicionar legenda"}
+    >
+      <Plus className={cn("w-3 h-3 transition-transform", data.showLegend && "rotate-45")} />
+    </button>
+
     <div className="text-sm font-medium text-zinc-700 markdown-node">
       <Markdown>{(data.label as string) || 'Texto...'}</Markdown>
     </div>
