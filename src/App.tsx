@@ -1177,24 +1177,21 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
 
     try {
       const bounds = getNodesBounds(nodes);
-      const padding = 150; // Increased padding
+      const padding = 100;
       const width = bounds.width + padding * 2;
       const height = bounds.height + padding * 2;
       
-      // Calculate viewport to fit all nodes with a bit more margin
-      const viewport = getViewportForBounds(bounds, width, height, 0.01, 2, 0.1);
-
       const options = { 
         backgroundColor: '#ffffff', 
         quality: 1, 
-        pixelRatio: 2, // Slightly lower pixel ratio to avoid memory issues on huge trees
+        pixelRatio: 3, // High resolution
         filter,
         width,
         height,
         style: {
           width: `${width}px`,
           height: `${height}px`,
-          transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
+          transform: `translate(${-bounds.x + padding}px, ${-bounds.y + padding}px)`,
         }
       };
       
@@ -1230,30 +1227,33 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
 
     try {
       const bounds = getNodesBounds(nodes);
-      const padding = 150; // Increased padding
+      const padding = 100;
       const width = bounds.width + padding * 2;
       const height = bounds.height + padding * 2;
       
-      const viewport = getViewportForBounds(bounds, width, height, 0.01, 2, 0.1);
-
       const dataUrl = await toPng(reactFlowWrapper.current, { 
         backgroundColor: '#ffffff', 
         quality: 1, 
-        pixelRatio: 2,
+        pixelRatio: 3, // High resolution
         filter,
         width,
         height,
         style: {
           width: `${width}px`,
           height: `${height}px`,
-          transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
+          transform: `translate(${-bounds.x + padding}px, ${-bounds.y + padding}px)`,
         }
       });
       
-      const pdf = new jsPDF('l', 'mm', [width * 0.264583, height * 0.264583]); // Convert px to mm
-      const imgProps = pdf.getImageProperties(dataUrl);
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      // Convert px to mm (1px = 0.264583mm)
+      const pdfWidth = width * 0.264583;
+      const pdfHeight = height * 0.264583;
+      
+      const pdf = new jsPDF({
+        orientation: pdfWidth > pdfHeight ? 'l' : 'p',
+        unit: 'mm',
+        format: [pdfWidth, pdfHeight]
+      });
       
       pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, pdfHeight);
       pdf.save(`fta-report-${Date.now()}.pdf`);
