@@ -454,6 +454,7 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
   const [dynamicSuggestions, setDynamicSuggestions] = useState<string[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [showGrid, setShowGrid] = useState(true);
+  const [showMiniMap, setShowMiniMap] = useState(true);
   const [interactionMode, setInteractionMode] = useState<'pan' | 'select'>('pan');
   const [addChildMenu, setAddChildMenu] = useState<{ parentId: string, x: number, y: number } | null>(null);
   const [expandedSuggestionIdx, setExpandedSuggestionIdx] = useState<number | null>(null);
@@ -1413,18 +1414,21 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
         >
           {showGrid && <Background color={isDarkMode ? "#334155" : "#e2e8f0"} variant={BackgroundVariant.Lines} gap={20} />}
           <Controls />
-          <MiniMap 
-            style={{ backgroundColor: '#fff' }} 
-            nodeColor={(n) => {
-              if (n.type === 'topEvent') return '#dc2626';
-              if (n.type === 'immediateCause') return '#1e3a8a';
-              if (n.type === 'intermediateCause') return '#064e3b';
-              if (n.type === 'undevelopedEvent') return '#ec4899';
-              if (n.type === 'basicCause') return '#facc15';
-              if (n.type === 'contributingFactor') return '#0369a1';
-              return '#d2d2a0';
-            }}
-          />
+          {showMiniMap && (
+            <MiniMap 
+              style={{ backgroundColor: isDarkMode ? '#18181b' : '#fff' }} 
+              nodeColor={(n) => {
+                if (n.type === 'topEvent') return '#dc2626';
+                if (n.type === 'immediateCause') return '#1e3a8a';
+                if (n.type === 'intermediateCause') return '#064e3b';
+                if (n.type === 'undevelopedEvent') return '#ec4899';
+                if (n.type === 'basicCause') return '#facc15';
+                if (n.type === 'contributingFactor') return '#0369a1';
+                return '#d2d2a0';
+              }}
+              maskColor={isDarkMode ? 'rgba(0, 0, 0, 0.6)' : 'rgba(240, 242, 245, 0.6)'}
+            />
+          )}
           
           <Panel position="top-left" className="flex flex-col gap-2">
             <div className="flex flex-col gap-1">
@@ -1644,6 +1648,19 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
               title={showGrid ? "Ocultar Grade" : "Mostrar Grade"}
             >
               <Grid className="w-4 h-4" />
+            </button>
+
+            <button 
+              onClick={() => setShowMiniMap(!showMiniMap)}
+              className={cn(
+                "px-4 py-2 rounded-lg border flex items-center gap-2 text-sm transition-colors shadow-sm",
+                showMiniMap 
+                  ? (isDarkMode ? "bg-emerald-900/40 text-emerald-400 border-emerald-800" : "bg-emerald-50 text-emerald-700 border-emerald-200") 
+                  : (isDarkMode ? "bg-zinc-900 text-zinc-400 border-zinc-800 hover:bg-zinc-800" : "bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50")
+              )}
+              title={showMiniMap ? "Ocultar Mini Mapa" : "Mostrar Mini Mapa"}
+            >
+              <ImageIcon className="w-4 h-4" />
             </button>
 
             <button 

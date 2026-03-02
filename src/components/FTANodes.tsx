@@ -27,8 +27,9 @@ const BaseNode = ({
   typeLabel?: string;
 }) => (
   <div className={cn(
-    "group px-4 py-2 shadow-md border-2 transition-all w-[200px] text-center font-bold text-xs uppercase tracking-wider relative",
+    "group px-4 py-2 shadow-md border-2 transition-all w-[200px] text-center font-bold text-xs tracking-wider relative",
     selected ? "border-emerald-500 scale-105 shadow-xl" : "border-zinc-200",
+    data.textCase === 'lowercase' ? "lowercase" : "uppercase",
     className
   )}>
     {showTopHandle && <Handle type="target" position={Position.Top} className="w-2.5 h-2.5 bg-zinc-400 border-white !top-[-5px]" />}
