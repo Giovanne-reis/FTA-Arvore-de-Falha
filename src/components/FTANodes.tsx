@@ -150,7 +150,7 @@ export const UndevelopedEventNode = memo(({ id, data, selected }: NodeProps<any>
       data={data} 
       selected={selected} 
       className="bg-pink-500 text-white rounded-md" 
-      typeLabel="Evento Não Desenv."
+      typeLabel="Evento Não Desenvolvido"
     />
     <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-5 h-5 bg-cyan-400 rotate-45 border border-white flex items-center justify-center">
       {(data.totalCount as number) > 1 && (

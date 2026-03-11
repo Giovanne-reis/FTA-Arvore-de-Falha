@@ -213,7 +213,7 @@ const Sidebar = ({ isDarkMode }: { isDarkMode: boolean }) => {
             onDragStart={(event) => onDragStart(event, 'undevelopedEvent')}
             draggable
           >
-            EVENTO DESCARTADO
+            EVENTO NÃO DESENVOLVIDO
           </div>
           <div
             className="bg-yellow-400 p-3 rounded-lg cursor-grab active:cursor-grabbing text-black font-bold text-xs text-center shadow-sm hover:brightness-110 transition-all border border-yellow-500"
@@ -1185,7 +1185,7 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
         topEvent: 'EVENTO DE TOPO',
         immediateCause: 'CAUSA IMEDIATA',
         intermediateCause: 'CAUSA INTERMEDIÁRIA',
-        undevelopedEvent: 'EVENTO DESCARTADO',
+        undevelopedEvent: 'EVENTO NÃO DESENVOLVIDO',
         basicCause: 'CAUSA BÁSICA',
         contributingFactor: 'FATOR CONTRIBUINTE',
         annotation: 'CAIXA DE TEXTO',
@@ -1985,17 +1985,17 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
                   options.push({ type: 'immediateCause', label: 'Causa Imediata', color: 'text-blue-700 hover:bg-blue-50' });
                 } else if (parent.type === 'immediateCause') {
                   options.push({ type: 'intermediateCause', label: 'Causa Intermediária', color: 'text-green-700 hover:bg-green-50' });
-                  options.push({ type: 'undevelopedEvent', label: 'Evento Descartado', color: 'text-pink-700 hover:bg-pink-50' });
+                  options.push({ type: 'undevelopedEvent', label: 'Evento Não Desenvolvido', color: 'text-pink-700 hover:bg-pink-50' });
                   options.push({ type: 'basicCause', label: 'Causa Básica', color: 'text-yellow-700 hover:bg-yellow-50' });
                   options.push({ type: 'contributingFactor', label: 'Fator Contribuinte', color: 'text-sky-700 hover:bg-sky-50' });
                 } else if (parent.type === 'intermediateCause') {
                   options.push({ type: 'intermediateCause', label: 'Causa Intermediária', color: 'text-green-700 hover:bg-green-50' });
-                  options.push({ type: 'undevelopedEvent', label: 'Evento Descartado', color: 'text-pink-700 hover:bg-pink-50' });
+                  options.push({ type: 'undevelopedEvent', label: 'Evento Não Desenvolvido', color: 'text-pink-700 hover:bg-pink-50' });
                   options.push({ type: 'basicCause', label: 'Causa Básica', color: 'text-yellow-700 hover:bg-yellow-50' });
                   options.push({ type: 'contributingFactor', label: 'Fator Contribuinte', color: 'text-sky-700 hover:bg-sky-50' });
                 } else if (parent.type === 'contributingFactor') {
                   options.push({ type: 'contributingFactor', label: 'Fator Contribuinte', color: 'text-sky-700 hover:bg-sky-50' });
-                  options.push({ type: 'undevelopedEvent', label: 'Evento Descartado', color: 'text-pink-700 hover:bg-pink-50' });
+                  options.push({ type: 'undevelopedEvent', label: 'Evento Não Desenvolvido', color: 'text-pink-700 hover:bg-pink-50' });
                   options.push({ type: 'basicCause', label: 'Causa Básica', color: 'text-yellow-700 hover:bg-yellow-50' });
                 } else if (parent.type === 'basicCause' || parent.type === 'blockingAction') {
                   options.push({ type: 'blockingAction', label: 'Ação de Bloqueio', color: 'text-zinc-700 hover:bg-zinc-50' });
@@ -2199,7 +2199,7 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
                           onClick={() => addSuggestedNode(suggestion, 'undevelopedEvent')}
                           className="text-[10px] font-bold text-left px-2 py-2 rounded hover:bg-pink-50 text-pink-700 transition-colors flex items-center justify-between group"
                         >
-                          Evento Descartado <Plus className="w-3 h-3 opacity-0 group-hover:opacity-100" />
+                          Evento Não Desenvolvido <Plus className="w-3 h-3 opacity-0 group-hover:opacity-100" />
                         </button>
                         <button
                           onClick={() => addSuggestedNode(suggestion, 'basicCause')}
