@@ -1989,10 +1989,12 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
                   options.push({ type: 'basicCause', label: 'Causa Básica', color: 'text-yellow-700 hover:bg-yellow-50' });
                   options.push({ type: 'contributingFactor', label: 'Fator Contribuinte', color: 'text-sky-700 hover:bg-sky-50' });
                 } else if (parent.type === 'intermediateCause') {
+                  options.push({ type: 'intermediateCause', label: 'Causa Intermediária', color: 'text-green-700 hover:bg-green-50' });
                   options.push({ type: 'undevelopedEvent', label: 'Evento Descartado', color: 'text-pink-700 hover:bg-pink-50' });
                   options.push({ type: 'basicCause', label: 'Causa Básica', color: 'text-yellow-700 hover:bg-yellow-50' });
                   options.push({ type: 'contributingFactor', label: 'Fator Contribuinte', color: 'text-sky-700 hover:bg-sky-50' });
                 } else if (parent.type === 'contributingFactor') {
+                  options.push({ type: 'contributingFactor', label: 'Fator Contribuinte', color: 'text-sky-700 hover:bg-sky-50' });
                   options.push({ type: 'undevelopedEvent', label: 'Evento Descartado', color: 'text-pink-700 hover:bg-pink-50' });
                   options.push({ type: 'basicCause', label: 'Causa Básica', color: 'text-yellow-700 hover:bg-yellow-50' });
                 } else if (parent.type === 'basicCause' || parent.type === 'blockingAction') {
