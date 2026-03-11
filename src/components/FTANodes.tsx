@@ -177,6 +177,79 @@ export const BasicCauseNode = memo(({ id, data, selected }: NodeProps<any>) => (
   </div>
 ));
 
+export const BlockingActionNode = memo(({ id, data, selected }: NodeProps<any>) => {
+  const label = data.label as string || '';
+  const lines = label.split('\n');
+  const title = lines[0] || '';
+  const description = lines.slice(1).join('\n') || '';
+
+  return (
+    <div className={cn(
+      "group px-4 py-3 shadow-md border-2 transition-all w-[200px] text-left relative bg-white rounded-xl",
+      selected ? "border-emerald-500 scale-105 shadow-xl" : "border-zinc-300",
+    )}>
+      <Handle type="target" position={Position.Top} className="w-2.5 h-2.5 bg-zinc-400 border-white !top-[-5px]" />
+      
+      {/* Legend (Left Side) */}
+      {data.showLegend && (
+        <div className="absolute right-full mr-6 top-1/2 -translate-y-1/2 flex items-center animate-in fade-in slide-in-from-right-2">
+          <div className="bg-zinc-800 text-white border-zinc-900 px-3 py-1.5 rounded-lg text-[10px] whitespace-nowrap font-extrabold border-2 shadow-md uppercase tracking-tight">
+            Ação de Bloqueio
+          </div>
+          <div className="w-4 h-0.5 bg-zinc-800 relative -ml-0.5">
+            <div className="absolute right-0 top-1/2 -translate-y-1/2 border-y-[4px] border-y-transparent border-l-[6px] border-l-zinc-800" />
+          </div>
+        </div>
+      )}
+
+      {/* Toggle Legend Button */}
+      <button 
+        onClick={(e) => {
+          e.stopPropagation();
+          data.onToggleLegend?.(id);
+        }}
+        className={cn(
+          "absolute -left-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center transition-all shadow-sm z-50 border opacity-0 group-hover:opacity-100",
+          data.showLegend 
+            ? "bg-zinc-800 text-white border-zinc-700 hover:bg-zinc-700" 
+            : "bg-zinc-100 text-zinc-600 border-zinc-200 hover:bg-white"
+        )}
+        title={data.showLegend ? "Remover legenda" : "Adicionar legenda"}
+      >
+        <Plus className={cn("w-3 h-3 transition-transform", data.showLegend && "rotate-45")} />
+      </button>
+      
+      {/* Add Child Button */}
+      <button 
+        onClick={(e) => {
+          e.stopPropagation();
+          data.onOpenAddChildMenu?.(e, id);
+        }}
+        className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-emerald-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:bg-emerald-500 z-50 border-2 border-white"
+        title="Adicionar sub-nó"
+      >
+        <Plus className="w-4 h-4" />
+      </button>
+
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center gap-2 border-b border-zinc-100 pb-1.5 mb-0.5">
+          <div className="w-2 h-2 rounded-full bg-emerald-500" />
+          <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Ação de Bloqueio</span>
+        </div>
+        <div className="text-xs font-bold text-zinc-800 leading-tight break-words">
+          {title || 'Título da Ação'}
+        </div>
+        {description && (
+          <div className="text-[10px] text-zinc-500 leading-relaxed font-medium break-words italic">
+            {description}
+          </div>
+        )}
+      </div>
+      <Handle type="source" position={Position.Bottom} className="w-2.5 h-2.5 bg-zinc-400 border-white !bottom-[-5px]" />
+    </div>
+  );
+});
+
 export const ContributingFactorNode = memo(({ id, data, selected }: NodeProps<any>) => (
   <BaseNode 
     id={id}

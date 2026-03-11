@@ -81,6 +81,7 @@ import {
   TransferInNode,
   TransferOutNode,
   AnnotationNode,
+  BlockingActionNode,
   cn
 } from './components/FTANodes';
 import { COMMON_EQUIPMENT_FAILURES } from './constants/suggestions';
@@ -100,6 +101,7 @@ const nodeTypes = {
   transferIn: TransferInNode,
   transferOut: TransferOutNode,
   annotation: AnnotationNode,
+  blockingAction: BlockingActionNode,
 };
 
 const defaultEdgeOptions = {
@@ -226,6 +228,13 @@ const Sidebar = ({ isDarkMode }: { isDarkMode: boolean }) => {
             draggable
           >
             FATOR CONTRIBUINTE
+          </div>
+          <div
+            className="bg-white p-3 rounded-lg cursor-grab active:cursor-grabbing text-black font-bold text-xs text-center shadow-sm hover:brightness-110 transition-all border border-zinc-300"
+            onDragStart={(event) => onDragStart(event, 'blockingAction')}
+            draggable
+          >
+            AÇÃO DE BLOQUEIO
           </div>
         </div>
 
@@ -676,10 +685,10 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
 
     const newNode: Node = {
       id: newNodeId,
-      type,
+      type: type || (parentNode.type === 'basicCause' ? 'blockingAction' : 'basicCause'),
       position: { x: parentNode.position.x + xOffset, y: parentNode.position.y + 160 },
       data: { 
-        label: label || 'Nova Causa',
+        label: label || (parentNode.type === 'basicCause' ? 'Ação de Bloqueio' : 'Nova Causa'),
         onOpenAddChildMenu,
         onToggleLegend,
       },
@@ -692,8 +701,31 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
       type: 'step',
     };
 
-    setNodes((nds) => nds.concat(newNode));
-    setEdges((eds) => eds.concat(newEdge));
+    if (newNode.type === 'basicCause') {
+      const blockingId = `blocking-${newNodeId}`;
+      const blockingNode: Node = {
+        id: blockingId,
+        type: 'blockingAction',
+        position: { x: newNode.position.x, y: newNode.position.y + 160 },
+        data: {
+          label: 'AÇÃO DE BLOQUEIO',
+          onOpenAddChildMenu,
+          onToggleLegend,
+        }
+      };
+      const blockingEdge: Edge = {
+        id: `e-${newNodeId}-${blockingId}`,
+        source: newNodeId,
+        target: blockingId,
+        type: 'step',
+      };
+      setNodes((nds) => nds.concat(newNode, blockingNode));
+      setEdges((eds) => eds.concat(newEdge, blockingEdge));
+    } else {
+      setNodes((nds) => nds.concat(newNode));
+      setEdges((eds) => eds.concat(newEdge));
+    }
+    
     setAddChildMenu(null);
     setTimeout(takeSnapshot, 50);
   }, [getNodes, setNodes, setEdges, takeSnapshot]);
@@ -732,7 +764,29 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
       },
     };
 
-    setNodes((nds) => nds.concat(newNode));
+    if (type === 'basicCause') {
+      const blockingId = `blocking-${newNodeId}`;
+      const blockingNode: Node = {
+        id: blockingId,
+        type: 'blockingAction',
+        position: { x: position.x, y: position.y + 160 },
+        data: {
+          label: 'AÇÃO DE BLOQUEIO',
+          onOpenAddChildMenu,
+          onToggleLegend,
+        }
+      };
+      const edge: Edge = {
+        id: `e-${newNodeId}-${blockingId}`,
+        source: newNodeId,
+        target: blockingId,
+        type: 'step',
+      };
+      setNodes((nds) => nds.concat(newNode, blockingNode));
+      setEdges((eds) => eds.concat(edge));
+    } else {
+      setNodes((nds) => nds.concat(newNode));
+    }
   }, [selectedNode, setNodes, addChildNode]);
 
   // Initial setup
@@ -1134,7 +1188,8 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
         undevelopedEvent: 'EVENTO DESCARTADO',
         basicCause: 'CAUSA BÁSICA',
         contributingFactor: 'FATOR CONTRIBUINTE',
-        annotation: 'CAIXA DE TEXTO'
+        annotation: 'CAIXA DE TEXTO',
+        blockingAction: 'AÇÃO DE BLOQUEIO'
       };
 
       if (type.includes('Gate')) defaultLabel = '';
@@ -1152,7 +1207,30 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
         },
       };
 
-      setNodes((nds) => nds.concat(newNode));
+      if (type === 'basicCause') {
+        const blockingId = `blocking-${newNodeId}`;
+        const blockingNode: Node = {
+          id: blockingId,
+          type: 'blockingAction',
+          position: { x: position.x, y: position.y + 160 },
+          data: {
+            label: 'AÇÃO DE BLOQUEIO',
+            onOpenAddChildMenu,
+            onToggleLegend,
+          }
+        };
+        const edge: Edge = {
+          id: `e-${newNodeId}-${blockingId}`,
+          source: newNodeId,
+          target: blockingId,
+          type: 'step',
+        };
+        setNodes((nds) => nds.concat(newNode, blockingNode));
+        setEdges((eds) => eds.concat(edge));
+      } else {
+        setNodes((nds) => nds.concat(newNode));
+      }
+      
       setTimeout(takeSnapshot, 50);
     },
     [screenToFlowPosition, setNodes, addChildNode, takeSnapshot]
@@ -1430,6 +1508,7 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
                 if (n.type === 'undevelopedEvent') return '#ec4899';
                 if (n.type === 'basicCause') return '#facc15';
                 if (n.type === 'contributingFactor') return '#0369a1';
+                if (n.type === 'blockingAction') return '#ffffff';
                 return '#d2d2a0';
               }}
               maskColor={isDarkMode ? 'rgba(0, 0, 0, 0.6)' : 'rgba(240, 242, 245, 0.6)'}
@@ -1816,19 +1895,50 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
                     </button>
                   </div>
                 </div>
-                <textarea
-                  ref={textareaRef}
-                  value={editValue}
-                  onChange={(e) => setEditValue(e.target.value)}
-                  className="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-3 text-zinc-900 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none resize-none h-24"
-                  placeholder={
-                    selectedNode.type === 'annotation' 
-                      ? "Digite seu texto aqui..." 
-                      : selectedNode.type?.includes('transfer')
-                      ? "Identificador (ex: A, B, 1...)"
-                      : "Descreva a causa ou evento..."
-                  }
-                />
+                {selectedNode.type === 'blockingAction' ? (
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-zinc-400 uppercase">Título da Ação</label>
+                      <input
+                        value={editValue.split('\n')[0] || ''}
+                        onChange={(e) => {
+                          const lines = editValue.split('\n');
+                          lines[0] = e.target.value;
+                          setEditValue(lines.join('\n'));
+                        }}
+                        className="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-zinc-900 text-sm font-bold focus:ring-2 focus:ring-emerald-500 outline-none"
+                        placeholder="Ex: Treinamento de Equipe"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-zinc-400 uppercase">Descrição Detalhada</label>
+                      <textarea
+                        value={editValue.split('\n').slice(1).join('\n') || ''}
+                        onChange={(e) => {
+                          const lines = editValue.split('\n');
+                          const title = lines[0] || '';
+                          setEditValue(title + '\n' + e.target.value);
+                        }}
+                        className="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-2.5 text-zinc-900 text-xs focus:ring-2 focus:ring-emerald-500 outline-none resize-none h-20"
+                        placeholder="Descreva como a ação será executada..."
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <textarea
+                    ref={textareaRef}
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    className="w-full bg-zinc-50 border border-zinc-200 rounded-xl p-3 text-zinc-900 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none resize-none h-24"
+                    placeholder={
+                      selectedNode.type === 'annotation' 
+                        ? "Digite seu texto aqui..." 
+                        : selectedNode.type?.includes('transfer')
+                        ? "Identificador (ex: A, B, 1...)"
+                        : "Descreva a causa ou evento..."
+                    }
+                  />
+                )}
                 <div className="flex gap-2">
                   <button
                     onClick={() => setSelectedNode(null)}
@@ -1885,6 +1995,8 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
                 } else if (parent.type === 'contributingFactor') {
                   options.push({ type: 'undevelopedEvent', label: 'Evento Descartado', color: 'text-pink-700 hover:bg-pink-50' });
                   options.push({ type: 'basicCause', label: 'Causa Básica', color: 'text-yellow-700 hover:bg-yellow-50' });
+                } else if (parent.type === 'basicCause' || parent.type === 'blockingAction') {
+                  options.push({ type: 'blockingAction', label: 'Ação de Bloqueio', color: 'text-zinc-700 hover:bg-zinc-50' });
                 }
 
                 return options.map(opt => (
