@@ -84,7 +84,7 @@ import {
   BlockingActionNode,
   cn
 } from './components/FTANodes';
-import { COMMON_EQUIPMENT_FAILURES } from './constants/suggestions';
+import { COMMON_EQUIPMENT_FAILURES, Suggestion, SuggestionNode } from './constants/suggestions';
 
 import { getFTASuggestions, getLocalUsage, AIProvider, analyzeFullFTA } from './services/geminiService';
 import Markdown from 'react-markdown';
@@ -1401,36 +1401,52 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
       setIsAnalyzingFull(false);
     }
   };
-  const applySuggestion = (suggestion: typeof COMMON_EQUIPMENT_FAILURES[0]) => {
-    const topId = `top-${Date.now()}`;
-    const newNodes: Node[] = [
-      {
-        id: topId,
-        type: 'topEvent',
-        position: { x: 400, y: 50 },
-        data: { label: suggestion.event.toUpperCase() },
-      }
-    ];
+  const applySuggestion = (suggestion: Suggestion) => {
+    takeSnapshot();
+    const newNodes: Node[] = [];
     const newEdges: Edge[] = [];
+    let nodeIdCounter = 0;
 
-    suggestion.causes.forEach((cause, index) => {
-      const causeId = `cause-${topId}-${index}`;
+    const processNode = (sNode: SuggestionNode, parentId: string | null = null) => {
+      const currentId = `${sNode.type}-${Date.now()}-${nodeIdCounter++}`;
+      
       newNodes.push({
-        id: causeId,
-        type: 'immediateCause',
-        position: { x: 200 + (index * 200), y: 250 },
-        data: { label: cause },
+        id: currentId,
+        type: sNode.type,
+        position: { x: 0, y: 0 }, // Will be layouted
+        data: { 
+          label: sNode.label,
+          showLegend: true,
+          onOpenAddChildMenu,
+          onToggleLegend,
+        },
       });
-      newEdges.push({
-        id: `e-${topId}-${causeId}`,
-        source: topId,
-        target: causeId,
-        type: 'step',
-      });
-    });
 
-    setNodes(newNodes);
-    setEdges(newEdges);
+      if (parentId) {
+        newEdges.push({
+          id: `e-${parentId}-${currentId}`,
+          source: parentId,
+          target: currentId,
+          type: 'step',
+        });
+      }
+
+      if (sNode.children) {
+        sNode.children.forEach((child) => processNode(child, currentId));
+      }
+    };
+
+    processNode(suggestion.tree);
+
+    // Apply layout immediately
+    const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
+      newNodes,
+      newEdges,
+      'TB'
+    );
+
+    setNodes(layoutedNodes);
+    setEdges(layoutedEdges);
     setShowSuggestions(false);
     setTimeout(() => fitView(), 100);
   };
@@ -2300,7 +2316,7 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
                 >
                   <div>
                     <h3 className="font-bold text-zinc-700 group-hover:text-emerald-700 transition-colors">{item.event}</h3>
-                    <p className="text-zinc-500 text-xs mt-1">Causas: {item.causes.slice(0, 3).join(', ')}...</p>
+                    <p className="text-zinc-500 text-xs mt-1">Árvore completa de falhas com causas e ações</p>
                   </div>
                   <ChevronRight className="w-5 h-5 text-zinc-300 group-hover:text-emerald-400 transition-all transform group-hover:translate-x-1" />
                 </button>
