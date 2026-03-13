@@ -27,7 +27,7 @@ const BaseNode = ({
   typeLabel?: string;
 }) => (
   <div className={cn(
-    "group px-4 py-2 shadow-md border-2 transition-all w-[200px] text-center font-bold text-xs tracking-wider relative",
+    "group px-4 py-2 shadow-md border-2 transition-all w-[200px] text-center font-bold text-xs tracking-wider relative node-animation",
     selected ? "border-emerald-500 scale-105 shadow-xl" : "border-zinc-200",
     data.textCase === 'lowercase' ? "lowercase" : "uppercase",
     className
@@ -94,21 +94,23 @@ const BaseNode = ({
     </button>
     
     {/* Add Child Button */}
-    <button 
-      onClick={(e) => {
-        e.stopPropagation();
-        data.onOpenAddChildMenu?.(e, id);
-      }}
-      className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-emerald-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:bg-emerald-500 z-50 border-2 border-white"
-      title="Adicionar sub-nó"
-    >
-      <Plus className="w-4 h-4" />
-    </button>
+    {!data.isLeaf && (
+      <button 
+        onClick={(e) => {
+          e.stopPropagation();
+          data.onOpenAddChildMenu?.(e, id);
+        }}
+        className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-emerald-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:bg-emerald-500 z-50 border-2 border-white"
+        title="Adicionar sub-nó"
+      >
+        <Plus className="w-4 h-4" />
+      </button>
+    )}
 
     <div className="flex flex-col items-center justify-center min-h-[45px] leading-tight markdown-node">
       <Markdown>{data.label as string}</Markdown>
     </div>
-    {showBottomHandle && <Handle type="source" position={Position.Bottom} className="w-2.5 h-2.5 bg-zinc-400 border-white !bottom-[-5px]" />}
+    {showBottomHandle && !data.isLeaf && <Handle type="source" position={Position.Bottom} className="w-2.5 h-2.5 bg-zinc-400 border-white !bottom-[-5px]" />}
   </div>
 );
 
@@ -185,7 +187,7 @@ export const BlockingActionNode = memo(({ id, data, selected }: NodeProps<any>) 
 
   return (
     <div className={cn(
-      "group px-4 py-3 shadow-md border-2 transition-all w-[200px] text-left relative bg-white rounded-xl",
+      "group px-4 py-3 shadow-md border-2 transition-all w-[200px] text-left relative bg-white rounded-xl node-animation",
       selected ? "border-emerald-500 scale-105 shadow-xl" : "border-zinc-300",
     )}>
       <Handle type="target" position={Position.Top} className="w-2.5 h-2.5 bg-zinc-400 border-white !top-[-5px]" />
@@ -220,16 +222,18 @@ export const BlockingActionNode = memo(({ id, data, selected }: NodeProps<any>) 
       </button>
       
       {/* Add Child Button */}
-      <button 
-        onClick={(e) => {
-          e.stopPropagation();
-          data.onOpenAddChildMenu?.(e, id);
-        }}
-        className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-emerald-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:bg-emerald-500 z-50 border-2 border-white"
-        title="Adicionar sub-nó"
-      >
-        <Plus className="w-4 h-4" />
-      </button>
+      {!data.isLeaf && (
+        <button 
+          onClick={(e) => {
+            e.stopPropagation();
+            data.onOpenAddChildMenu?.(e, id);
+          }}
+          className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-emerald-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:bg-emerald-500 z-50 border-2 border-white"
+          title="Adicionar sub-nó"
+        >
+          <Plus className="w-4 h-4" />
+        </button>
+      )}
 
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center gap-2 border-b border-zinc-100 pb-1.5 mb-0.5">
@@ -245,7 +249,7 @@ export const BlockingActionNode = memo(({ id, data, selected }: NodeProps<any>) 
           </div>
         )}
       </div>
-      <Handle type="source" position={Position.Bottom} className="w-2.5 h-2.5 bg-zinc-400 border-white !bottom-[-5px]" />
+      {!data.isLeaf && <Handle type="source" position={Position.Bottom} className="w-2.5 h-2.5 bg-zinc-400 border-white !bottom-[-5px]" />}
     </div>
   );
 });

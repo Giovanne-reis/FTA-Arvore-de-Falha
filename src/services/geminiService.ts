@@ -99,10 +99,19 @@ export async function getFTASuggestions(nodeLabel: string, nodeType: string, con
     contextStr = `\nContexto da hierarquia (do topo para este nó): ${contextPath.join(' -> ')}.`;
   }
 
-  const prompt = `Analise o seguinte evento em uma Árvore de Falhas (FTA) de equipamentos: "${nodeLabel}" (Tipo: ${nodeType}).${contextStr}
-  Sugira 8 causas prováveis ou sub-eventos que poderiam estar abaixo deste nó na hierarquia, considerando o contexto técnico fornecido.
-  As sugestões devem ser curtas (máximo 5 palavras), técnicas e em Português.
-  Retorne no formato JSON: { "suggestions": ["causa 1", "causa 2", ...] }`;
+  let prompt = "";
+  if (nodeType === 'basicCause') {
+    prompt = `Analise a seguinte Causa Básica em uma Árvore de Falhas (FTA): "${nodeLabel}".${contextStr}
+    Sugira 8 Ações de Bloqueio (medidas preventivas ou corretivas) para mitigar ou eliminar esta causa.
+    Cada sugestão deve seguir o formato: "TÍTULO DA AÇÃO\\nDescrição detalhada da ação".
+    As sugestões devem ser técnicas, profissionais e em Português.
+    Retorne no formato JSON: { "suggestions": ["Título 1\\nDescrição 1", "Título 2\\nDescrição 2", ...] }`;
+  } else {
+    prompt = `Analise o seguinte evento em uma Árvore de Falhas (FTA) de equipamentos: "${nodeLabel}" (Tipo: ${nodeType}).${contextStr}
+    Sugira 8 causas prováveis ou sub-eventos que poderiam estar abaixo deste nó na hierarquia, considerando o contexto técnico fornecido.
+    As sugestões devem ser curtas (máximo 5 palavras), técnicas e em Português.
+    Retorne no formato JSON: { "suggestions": ["causa 1", "causa 2", ...] }`;
+  }
 
   try {
     let suggestions: string[] = [];

@@ -740,18 +740,19 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
   }, []);
 
   const addSuggestedNode = useCallback((label: string, type: string) => {
+    if (!selectedNode) return;
+    
     const newNodeId = `${Date.now()}`;
     
-    // Position it in the center of the current view or near the selected node
-    let position = { x: 500, y: 300 };
-    if (selectedNode) {
-      // Calculate centering offset
-      const parentWidth = selectedNode.measured?.width ?? (selectedNode.type?.includes('Gate') || selectedNode.type?.includes('transfer') ? 60 : 200);
-      const childWidth = type.includes('Gate') || type.includes('transfer') ? 60 : 200;
-      const xOffset = (parentWidth - childWidth) / 2;
-      
-      position = { x: selectedNode.position.x + xOffset, y: selectedNode.position.y + 160 };
-    }
+    // Position it below the selected node
+    const parentWidth = selectedNode.measured?.width ?? (selectedNode.type?.includes('Gate') || selectedNode.type?.includes('transfer') ? 60 : 200);
+    const childWidth = type.includes('Gate') || type.includes('transfer') ? 60 : 200;
+    const xOffset = (parentWidth - childWidth) / 2;
+    
+    const position = { x: selectedNode.position.x + xOffset, y: selectedNode.position.y + 160 };
+
+    // Suggestions are leaves unless they are blocking actions
+    const isLeaf = type !== 'blockingAction';
 
     const newNode: Node = {
       id: newNodeId,
@@ -761,7 +762,15 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
         label,
         onOpenAddChildMenu,
         onToggleLegend,
+        isLeaf,
       },
+    };
+
+    const newEdge: Edge = {
+      id: `e-${selectedNode.id}-${newNodeId}`,
+      source: selectedNode.id,
+      target: newNodeId,
+      type: 'step',
     };
 
     if (type === 'basicCause') {
@@ -776,18 +785,21 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
           onToggleLegend,
         }
       };
-      const edge: Edge = {
+      const blockingEdge: Edge = {
         id: `e-${newNodeId}-${blockingId}`,
         source: newNodeId,
         target: blockingId,
         type: 'step',
       };
       setNodes((nds) => nds.concat(newNode, blockingNode));
-      setEdges((eds) => eds.concat(edge));
+      setEdges((eds) => eds.concat(newEdge, blockingEdge));
     } else {
       setNodes((nds) => nds.concat(newNode));
+      setEdges((eds) => eds.concat(newEdge));
     }
-  }, [selectedNode, setNodes, addChildNode]);
+    
+    takeSnapshot();
+  }, [selectedNode, setNodes, setEdges, takeSnapshot, onOpenAddChildMenu, onToggleLegend]);
 
   // Initial setup
   useEffect(() => {
@@ -1481,8 +1493,8 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
   }, [selectedNode, setNodes, setEdges, takeSnapshot]);
 
   return (
-    <div className={cn("flex-1 h-full flex relative", isDarkMode ? "dark bg-zinc-950" : "bg-white")}>
-      <div className="flex-1 relative" ref={reactFlowWrapper}>
+    <div className={cn("flex-1 h-screen flex relative overflow-hidden", isDarkMode ? "dark bg-zinc-950" : "bg-white")}>
+      <div className="flex-1 relative h-full" ref={reactFlowWrapper}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -2137,8 +2149,8 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
       )}
 
       {/* Dynamic Suggestions Sidebar */}
-      <aside className="w-80 bg-zinc-50 border-l border-zinc-200 p-6 flex flex-col gap-6 overflow-y-auto">
-        <div className="space-y-2">
+      <aside className="w-80 bg-zinc-50 border-l border-zinc-200 p-6 flex flex-col gap-6 overflow-y-auto h-full scrollbar-thin scrollbar-thumb-zinc-200 scrollbar-track-transparent">
+        <div className="space-y-2 flex-shrink-0">
           <h2 className="text-zinc-500 text-xs font-bold uppercase tracking-widest flex items-center gap-2">
             <Zap className="w-4 h-4 text-amber-500" /> Sugestões Inteligentes
           </h2>
@@ -2153,7 +2165,9 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
             </div>
 
             <div className="space-y-4">
-              <h3 className="text-zinc-400 text-[10px] font-bold uppercase tracking-widest">Causas Prováveis:</h3>
+              <h3 className="text-zinc-400 text-[10px] font-bold uppercase tracking-widest">
+                {selectedNode.type === 'basicCause' ? 'Ações de Bloqueio:' : 'Causas Prováveis:'}
+              </h3>
               
               {!canFetchSuggestions ? (
                 <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl text-center space-y-3">
@@ -2199,36 +2213,48 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
                     {expandedSuggestionIdx === idx && (
                       <div className="p-2 grid grid-cols-1 gap-1 bg-white border-t border-zinc-100 animate-in slide-in-from-top-2 duration-200">
                         <p className="text-[9px] text-zinc-400 font-bold uppercase px-2 mb-1">Adicionar como:</p>
-                        <button
-                          onClick={() => addSuggestedNode(suggestion, 'immediateCause')}
-                          className="text-[10px] font-bold text-left px-2 py-2 rounded hover:bg-blue-50 text-blue-700 transition-colors flex items-center justify-between group"
-                        >
-                          Causa Imediata <Plus className="w-3 h-3 opacity-0 group-hover:opacity-100" />
-                        </button>
-                        <button
-                          onClick={() => addSuggestedNode(suggestion, 'intermediateCause')}
-                          className="text-[10px] font-bold text-left px-2 py-2 rounded hover:bg-green-50 text-green-700 transition-colors flex items-center justify-between group"
-                        >
-                          Causa Intermediária <Plus className="w-3 h-3 opacity-0 group-hover:opacity-100" />
-                        </button>
-                        <button
-                          onClick={() => addSuggestedNode(suggestion, 'undevelopedEvent')}
-                          className="text-[10px] font-bold text-left px-2 py-2 rounded hover:bg-pink-50 text-pink-700 transition-colors flex items-center justify-between group"
-                        >
-                          Evento Não Desenvolvido <Plus className="w-3 h-3 opacity-0 group-hover:opacity-100" />
-                        </button>
-                        <button
-                          onClick={() => addSuggestedNode(suggestion, 'basicCause')}
-                          className="text-[10px] font-bold text-left px-2 py-2 rounded hover:bg-yellow-50 text-yellow-700 transition-colors flex items-center justify-between group"
-                        >
-                          Causa Básica <Plus className="w-3 h-3 opacity-0 group-hover:opacity-100" />
-                        </button>
-                        <button
-                          onClick={() => addSuggestedNode(suggestion, 'contributingFactor')}
-                          className="text-[10px] font-bold text-left px-2 py-2 rounded hover:bg-sky-50 text-sky-700 transition-colors flex items-center justify-between group"
-                        >
-                          Fator Contribuinte <Plus className="w-3 h-3 opacity-0 group-hover:opacity-100" />
-                        </button>
+                        
+                        {selectedNode.type === 'basicCause' ? (
+                          <button
+                            onClick={() => addSuggestedNode(suggestion, 'blockingAction')}
+                            className="text-[10px] font-bold text-left px-2 py-2 rounded hover:bg-emerald-50 text-emerald-700 transition-colors flex items-center justify-between group"
+                          >
+                            Ação de Bloqueio <Plus className="w-3 h-3 opacity-0 group-hover:opacity-100" />
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => addSuggestedNode(suggestion, 'immediateCause')}
+                              className="text-[10px] font-bold text-left px-2 py-2 rounded hover:bg-blue-50 text-blue-700 transition-colors flex items-center justify-between group"
+                            >
+                              Causa Imediata <Plus className="w-3 h-3 opacity-0 group-hover:opacity-100" />
+                            </button>
+                            <button
+                              onClick={() => addSuggestedNode(suggestion, 'intermediateCause')}
+                              className="text-[10px] font-bold text-left px-2 py-2 rounded hover:bg-green-50 text-green-700 transition-colors flex items-center justify-between group"
+                            >
+                              Causa Intermediária <Plus className="w-3 h-3 opacity-0 group-hover:opacity-100" />
+                            </button>
+                            <button
+                              onClick={() => addSuggestedNode(suggestion, 'undevelopedEvent')}
+                              className="text-[10px] font-bold text-left px-2 py-2 rounded hover:bg-pink-50 text-pink-700 transition-colors flex items-center justify-between group"
+                            >
+                              Evento Não Desenvolvido <Plus className="w-3 h-3 opacity-0 group-hover:opacity-100" />
+                            </button>
+                            <button
+                              onClick={() => addSuggestedNode(suggestion, 'basicCause')}
+                              className="text-[10px] font-bold text-left px-2 py-2 rounded hover:bg-yellow-50 text-yellow-700 transition-colors flex items-center justify-between group"
+                            >
+                              Causa Básica <Plus className="w-3 h-3 opacity-0 group-hover:opacity-100" />
+                            </button>
+                            <button
+                              onClick={() => addSuggestedNode(suggestion, 'contributingFactor')}
+                              className="text-[10px] font-bold text-left px-2 py-2 rounded hover:bg-sky-50 text-sky-700 transition-colors flex items-center justify-between group"
+                            >
+                              Fator Contribuinte <Plus className="w-3 h-3 opacity-0 group-hover:opacity-100" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>
