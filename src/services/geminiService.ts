@@ -100,9 +100,9 @@ export async function getFTASuggestions(nodeLabel: string, nodeType: string, con
   }
 
   let prompt = "";
-  if (nodeType === 'basicCause') {
-    prompt = `Analise a seguinte Causa Básica em uma Árvore de Falhas (FTA): "${nodeLabel}".${contextStr}
-    Sugira 8 Ações de Bloqueio (medidas preventivas ou corretivas) para mitigar ou eliminar esta causa.
+  if (nodeType === 'basicCause' || nodeType === 'blockingAction') {
+    prompt = `Analise a seguinte ${nodeType === 'basicCause' ? 'Causa Básica' : 'Ação de Bloqueio'} em uma Árvore de Falhas (FTA): "${nodeLabel}".${contextStr}
+    Sugira 8 Ações de Bloqueio (medidas preventivas ou corretivas) para mitigar, eliminar ou detalhar esta ação.
     Cada sugestão deve seguir o formato: "TÍTULO DA AÇÃO\\nDescrição detalhada da ação".
     As sugestões devem ser técnicas, profissionais e em Português.
     Retorne no formato JSON: { "suggestions": ["Título 1\\nDescrição 1", "Título 2\\nDescrição 2", ...] }`;

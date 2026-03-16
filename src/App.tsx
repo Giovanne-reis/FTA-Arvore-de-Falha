@@ -48,6 +48,7 @@ import {
   Grid,
   Save,
   FolderOpen,
+  LayoutTemplate,
   History,
   Undo2,
   Redo2,
@@ -64,7 +65,6 @@ import {
   Hand,
   MousePointer,
   Search,
-  LayoutTemplate,
   Sun,
   Moon
 } from 'lucide-react';
@@ -418,7 +418,7 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [isUndoRedoAction, setIsUndoRedoAction] = useState(false);
 
-  const { screenToFlowPosition, getNodes, fitView, toObject, setViewport } = useReactFlow();
+  const { screenToFlowPosition, getNodes, getEdges, fitView, toObject, setViewport } = useReactFlow();
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<Edge | null>(null);
   const [editValue, setEditValue] = useState('');
@@ -1279,7 +1279,7 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
       const options = { 
         backgroundColor: isDarkMode ? '#09090b' : '#ffffff', 
         quality: 1, 
-        pixelRatio: 2, 
+        pixelRatio: 4, 
         width,
         height,
         style: {
@@ -1331,7 +1331,7 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
       const dataUrl = await toPng(viewportElement, { 
         backgroundColor: '#ffffff', 
         quality: 1, 
-        pixelRatio: 2,
+        pixelRatio: 4,
         width,
         height,
         style: {
@@ -1384,6 +1384,58 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
       console.error('Failed to copy:', err);
     }
   };
+  const exportDXF = () => {
+    const nodes = getNodes();
+    const edges = getEdges();
+    if (nodes.length === 0) return;
+
+    let dxfContent = `0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1015\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n`;
+
+    // Add nodes as rectangles (LWPOLYLINE)
+    nodes.forEach(node => {
+      const x = node.position.x;
+      const y = -node.position.y; // DXF Y is up
+      const w = node.measured?.width || 200;
+      const h = node.measured?.height || 80;
+
+      dxfContent += `0\nLWPOLYLINE\n100\nAcDbEntity\n8\nNodes\n100\nAcDbPolyline\n90\n4\n70\n1\n`;
+      // Vertex 1
+      dxfContent += `10\n${x}\n20\n${y}\n`;
+      // Vertex 2
+      dxfContent += `10\n${x + w}\n20\n${y}\n`;
+      // Vertex 3
+      dxfContent += `10\n${x + w}\n20\n${y - h}\n`;
+      // Vertex 4
+      dxfContent += `10\n${x}\n20\n${y - h}\n`;
+
+      // Add text label
+      const label = (node.data.label as string || '').replace(/\n/g, ' ');
+      dxfContent += `0\nTEXT\n100\nAcDbEntity\n8\nLabels\n100\nAcDbText\n10\n${x + 5}\n20\n${y - h / 2}\n40\n5.0\n1\n${label}\n`;
+    });
+
+    // Add edges as lines
+    edges.forEach(edge => {
+      const sourceNode = nodes.find(n => n.id === edge.source);
+      const targetNode = nodes.find(n => n.id === edge.target);
+      if (sourceNode && targetNode) {
+        const x1 = sourceNode.position.x + (sourceNode.measured?.width || 200) / 2;
+        const y1 = -sourceNode.position.y - (sourceNode.measured?.height || 80);
+        const x2 = targetNode.position.x + (targetNode.measured?.width || 200) / 2;
+        const y2 = -targetNode.position.y;
+
+        dxfContent += `0\nLINE\n100\nAcDbEntity\n8\nEdges\n100\nAcDbLine\n10\n${x1}\n20\n${y1}\n11\n${x2}\n21\n${y2}\n`;
+      }
+    });
+
+    dxfContent += `0\nENDSEC\n0\nEOF`;
+
+    const blob = new Blob([dxfContent], { type: 'application/dxf' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `fta-export-${Date.now()}.dxf`;
+    link.click();
+  };
+
   const handleFullAnalysis = async () => {
     if (nodes.length === 0) return;
     
@@ -1816,6 +1868,12 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
                 )}>
                   <ImageIcon className="w-4 h-4 text-emerald-500" /> Imagem JPG
                 </button>
+                <button onClick={exportDXF} className={cn(
+                  "w-full px-4 py-3 text-left text-sm flex items-center gap-3 transition-colors border-t",
+                  isDarkMode ? "text-zinc-400 hover:bg-zinc-800 border-zinc-800" : "text-zinc-600 hover:bg-zinc-50 border-zinc-100"
+                )}>
+                  <LayoutTemplate className="w-4 h-4 text-amber-500" /> AutoCAD (DXF)
+                </button>
               </div>
             </div>
             
@@ -2166,7 +2224,7 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
 
             <div className="space-y-4">
               <h3 className="text-zinc-400 text-[10px] font-bold uppercase tracking-widest">
-                {selectedNode.type === 'basicCause' ? 'Ações de Bloqueio:' : 'Causas Prováveis:'}
+                {(selectedNode.type === 'basicCause' || selectedNode.type === 'blockingAction') ? 'Ações de Bloqueio:' : 'Causas Prováveis:'}
               </h3>
               
               {!canFetchSuggestions ? (
@@ -2214,7 +2272,7 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
                       <div className="p-2 grid grid-cols-1 gap-1 bg-white border-t border-zinc-100 animate-in slide-in-from-top-2 duration-200">
                         <p className="text-[9px] text-zinc-400 font-bold uppercase px-2 mb-1">Adicionar como:</p>
                         
-                        {selectedNode.type === 'basicCause' ? (
+                        {(selectedNode.type === 'basicCause' || selectedNode.type === 'blockingAction') ? (
                           <button
                             onClick={() => addSuggestedNode(suggestion, 'blockingAction')}
                             className="text-[10px] font-bold text-left px-2 py-2 rounded hover:bg-emerald-50 text-emerald-700 transition-colors flex items-center justify-between group"
