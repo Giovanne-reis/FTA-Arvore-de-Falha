@@ -25,7 +25,7 @@ import {
   SelectionMode
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { toPng, toJpeg } from 'html-to-image';
+import { toPng, toJpeg, toSvg } from 'html-to-image';
 import { jsPDF } from 'jspdf';
 import dagre from 'dagre';
 import { 
@@ -42,6 +42,7 @@ import {
   Share2,
   Image as ImageIcon,
   FileDown,
+  FileCode,
   Lightbulb,
   ChevronRight,
   X,
@@ -1248,7 +1249,7 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
     [screenToFlowPosition, setNodes, addChildNode, takeSnapshot]
   );
 
-  const exportImage = async (format: 'png' | 'jpeg') => {
+  const exportImage = async (format: 'png' | 'jpeg' | 'svg') => {
     if (!reactFlowWrapper.current) return;
     
     const nodes = getNodes();
@@ -1279,7 +1280,7 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
       const options = { 
         backgroundColor: isDarkMode ? '#09090b' : '#ffffff', 
         quality: 1, 
-        pixelRatio: 4, 
+        pixelRatio: format === 'svg' ? 1 : 4, 
         width,
         height,
         style: {
@@ -1290,9 +1291,291 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
         }
       };
       
-      const dataUrl = format === 'png' 
-        ? await toPng(viewportElement, options)
-        : await toJpeg(viewportElement, options);
+      let dataUrl = '';
+      if (format === 'png') {
+        dataUrl = await toPng(viewportElement, options);
+      } else if (format === 'jpeg') {
+        dataUrl = await toJpeg(viewportElement, options);
+      } else {
+        // Manual SVG generation for better compatibility (Word doesn't support foreignObject)
+        const nodes = getNodes();
+        const edges = getEdges();
+        const bounds = getNodesBounds(nodes);
+        const padding = 80;
+        
+        // Expand bounds for legends
+        let minX = bounds.x;
+        nodes.forEach(node => {
+          if (node.data?.showLegend) minX = Math.min(minX, node.position.x - 200);
+        });
+        
+        const width = (bounds.x + bounds.width) - minX + padding * 2;
+        const height = bounds.height + padding * 2;
+        const offsetX = -minX + padding;
+        const offsetY = -bounds.y + padding;
+
+        let svgContent = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">`;
+        svgContent += `<rect width="100%" height="100%" fill="${isDarkMode ? '#09090b' : '#ffffff'}" />`;
+
+        const wrapText = (text: string, maxWidth: number, fontSize: number) => {
+          const words = text.split(' ');
+          const lines: string[] = [];
+          let currentLine = '';
+          // Slightly more conservative char width for bold text
+          // Using 0.6 for bold, 0.5 for normal
+          const avgCharWidth = fontSize * 0.6; 
+          const maxChars = Math.floor(maxWidth / avgCharWidth);
+
+          words.forEach(word => {
+            if (word.length > maxChars) {
+              if (currentLine) lines.push(currentLine);
+              let remaining = word;
+              while (remaining.length > maxChars) {
+                lines.push(remaining.substring(0, maxChars));
+                remaining = remaining.substring(maxChars);
+              }
+              currentLine = remaining;
+            } else if ((currentLine + (currentLine ? ' ' : '') + word).length <= maxChars) {
+              currentLine = currentLine ? currentLine + ' ' + word : word;
+            } else {
+              if (currentLine) lines.push(currentLine);
+              currentLine = word;
+            }
+          });
+          if (currentLine) lines.push(currentLine);
+          return lines;
+        };
+
+        // Draw Edges
+        edges.forEach(edge => {
+          const sourceNode = nodes.find(n => n.id === edge.source);
+          const targetNode = nodes.find(n => n.id === edge.target);
+          if (sourceNode && targetNode) {
+            const isSourceGate = sourceNode.type?.includes('Gate') || sourceNode.type?.includes('transfer');
+            const isTargetGate = targetNode.type?.includes('Gate') || targetNode.type?.includes('transfer');
+            
+            const sW = sourceNode.measured?.width || (isSourceGate ? 60 : 200);
+            let sH = sourceNode.measured?.height;
+            if (!sH) {
+              if (isSourceGate) sH = 60;
+              else if (sourceNode.type === 'blockingAction') sH = 120;
+              else if (sourceNode.type === 'annotation') sH = 40;
+              else sH = 80;
+            }
+
+            const tW = targetNode.measured?.width || (isTargetGate ? 60 : 200);
+            let tH = targetNode.measured?.height;
+            if (!tH) {
+              if (isTargetGate) tH = 60;
+              else if (targetNode.type === 'blockingAction') tH = 120;
+              else if (targetNode.type === 'annotation') tH = 40;
+              else tH = 80;
+            }
+
+            const x1 = sourceNode.position.x + sW / 2 + offsetX;
+            const y1 = sourceNode.position.y + (isSourceGate ? sH - 5 : sH + 5) + offsetY;
+            const x2 = targetNode.position.x + tW / 2 + offsetX;
+            const y2 = targetNode.position.y + (isTargetGate ? 5 : -5) + offsetY;
+            
+            // Simple step path
+            const midY = (y1 + y2) / 2;
+            svgContent += `<path d="M ${x1} ${y1} L ${x1} ${midY} L ${x2} ${midY} L ${x2} ${y2}" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linejoin="round" />`;
+          }
+        });
+
+        // Draw Nodes
+        nodes.forEach(node => {
+          const x = node.position.x + offsetX;
+          const y = node.position.y + offsetY;
+          const isGate = node.type?.includes('Gate') || node.type?.includes('transfer');
+          const w = node.measured?.width || (isGate ? 60 : 200);
+          let h = node.measured?.height;
+          if (!h) {
+            if (isGate) h = 60;
+            else if (node.type === 'blockingAction') h = 120;
+            else if (node.type === 'annotation') h = 40;
+            else h = 80;
+          }
+          let color = '#ffffff';
+          let textColor = '#000000';
+          let borderRadius = '6';
+          let strokeColor = '#e5e7eb';
+
+          switch (node.type) {
+            case 'topEvent': color = '#dc2626'; textColor = '#ffffff'; strokeColor = '#b91c1c'; break;
+            case 'immediateCause': color = '#1e3a8a'; textColor = '#ffffff'; strokeColor = '#172554'; break;
+            case 'intermediateCause': color = '#064e3b'; textColor = '#ffffff'; strokeColor = '#064e3b'; break;
+            case 'undevelopedEvent': color = '#ec4899'; textColor = '#ffffff'; strokeColor = '#db2777'; break;
+            case 'basicCause': color = '#facc15'; textColor = '#000000'; strokeColor = '#eab308'; break;
+            case 'contributingFactor': color = '#0369a1'; textColor = '#ffffff'; strokeColor = '#075985'; break;
+            case 'blockingAction': color = '#ffffff'; textColor = '#1f2937'; borderRadius = '12'; strokeColor = '#d4d4d8'; break;
+          }
+
+          if (isGate) {
+            // Gates and Transfers (60x60)
+            const isAnd = node.type === 'andGate';
+            const isOr = node.type === 'orGate';
+            const isTransIn = node.type === 'transferIn';
+            const isTransOut = node.type === 'transferOut';
+            
+            let path = '';
+            let labelText = '';
+            if (isAnd) {
+              path = 'M 4,44 L 44,44 L 44,22 C 44,10 35,4 24,4 C 13,4 4,10 4,22 Z';
+              labelText = 'E';
+            } else if (isOr) {
+              path = 'M 4,44 Q 24,34 44,44 L 44,14 C 44,14 44,4 24,4 C 4,4 4,14 4,14 Z';
+              labelText = 'OU';
+            } else if (isTransIn) {
+              path = 'M 24,4 L 44,44 L 4,44 Z';
+              labelText = node.data.label as string;
+            } else if (isTransOut) {
+              path = 'M 4,4 L 44,4 L 24,44 Z';
+              labelText = node.data.label as string;
+            }
+
+            // Center the 40x40 icon in the measured width/height
+            const iconOffsetX = (w - 40) / 2;
+            const iconOffsetY = (h - 40) / 2;
+
+            svgContent += `<svg x="${x + iconOffsetX}" y="${y + iconOffsetY}" width="40" height="40" viewBox="0 0 48 48">
+              <path d="${path}" fill="#d2d2a0" stroke="#4b5563" stroke-width="2" />
+              <text x="24" y="${isOr ? 28 : (isTransIn ? 38 : (isTransOut ? 18 : 32))}" text-anchor="middle" font-size="12" font-weight="bold" fill="#1f2937" font-family="sans-serif">${labelText}</text>
+            </svg>`;
+          } else if (node.type === 'annotation') {
+             // Annotation
+             const label = (node.data.label as string || '');
+             const rawLines = label.split('\n');
+             const fontSize = 14;
+             const lines: string[] = [];
+             rawLines.forEach(l => lines.push(...wrapText(l, w - 20, fontSize)));
+             
+             const lineHeight = fontSize * 1.2;
+             const totalTextHeight = lines.length * lineHeight;
+             const startY = y + (h - totalTextHeight) / 2 + fontSize;
+
+             lines.forEach((line, i) => {
+               svgContent += `<text x="${x + w/2}" y="${startY + i * lineHeight}" text-anchor="middle" font-size="${fontSize}" fill="${isDarkMode ? '#d1d5db' : '#374151'}" font-family="sans-serif">${line}</text>`;
+             });
+          } else if (node.type === 'blockingAction') {
+            // Blocking Action specific layout
+            svgContent += `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${borderRadius}" fill="${color}" stroke="${strokeColor}" stroke-width="2" />`;
+            
+            const label = node.data.label as string || '';
+            const rawLines = label.split('\n');
+            const title = rawLines[0] || '';
+            const description = rawLines.slice(1).join(' ') || '';
+
+            // Header
+            svgContent += `<circle cx="${x + 20}" cy="${y + 20}" r="4" fill="#10b981" />`;
+            svgContent += `<text x="${x + 32}" y="${y + 23}" font-size="9" font-weight="900" fill="#a1a1aa" font-family="sans-serif" letter-spacing="1">AÇÃO DE BLOQUEIO</text>`;
+            svgContent += `<line x1="${x + 16}" y1="${y + 35}" x2="${x + w - 16}" y2="${y + 35}" stroke="#f4f4f5" stroke-width="1" />`;
+
+            // Title (wrapped)
+            const titleLines = wrapText(title, w - 32, 12);
+            titleLines.forEach((line, i) => {
+              svgContent += `<text x="${x + 16}" y="${y + 55 + i * 14}" font-size="12" font-weight="bold" fill="#1f2937" font-family="sans-serif">${line}</text>`;
+            });
+            
+            // Description (wrapped)
+            if (description) {
+              const descLines = wrapText(description, w - 32, 10);
+              const descStartY = y + 55 + titleLines.length * 14 + 5;
+              descLines.forEach((line, i) => {
+                svgContent += `<text x="${x + 16}" y="${descStartY + i * 12}" font-size="10" fill="#71717a" font-family="sans-serif" font-style="italic">${line}</text>`;
+              });
+            }
+          } else {
+            // Standard Rectangular Nodes
+            svgContent += `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${borderRadius}" fill="${color}" stroke="${strokeColor}" stroke-width="2" />`;
+            
+            // Text Label
+            const label = (node.data.label as string || '');
+            const rawLines = label.split('\n');
+            const fontSize = 11;
+            const lines: string[] = [];
+            rawLines.forEach(l => lines.push(...wrapText(l, w - 32, fontSize)));
+            
+            const lineHeight = fontSize * 1.3;
+            const totalTextHeight = lines.length * lineHeight;
+            const startY = y + (h - totalTextHeight) / 2 + fontSize;
+
+            lines.forEach((line, i) => {
+              svgContent += `<text x="${x + w/2}" y="${startY + i * lineHeight}" text-anchor="middle" font-size="${fontSize}" font-weight="bold" fill="${textColor}" font-family="sans-serif" style="text-transform: uppercase; letter-spacing: 0.5px;">${line}</text>`;
+            });
+
+            // Indicators for Undeveloped and Basic Cause
+            if (node.type === 'undevelopedEvent') {
+              const diamondX = x + w/2;
+              const diamondY = y + h + 8;
+              svgContent += `<rect x="${diamondX - 10}" y="${diamondY - 10}" width="20" height="20" fill="#22d3ee" stroke="#ffffff" stroke-width="1" transform="rotate(45, ${diamondX}, ${diamondY})" />`;
+              if ((node.data.totalCount as number) > 1) {
+                svgContent += `<text x="${diamondX}" y="${diamondY + 4}" text-anchor="middle" font-size="10" font-weight="bold" fill="#ffffff" font-family="sans-serif">${(node.data.index as number) + 1}</text>`;
+              }
+            } else if (node.type === 'basicCause') {
+              const circleX = x + w/2;
+              const circleY = y + h + 8;
+              svgContent += `<circle cx="${circleX}" cy="${circleY}" r="10" fill="#22d3ee" stroke="#ffffff" stroke-width="1" />`;
+              if ((node.data.totalCount as number) > 1) {
+                svgContent += `<text x="${circleX}" y="${circleY + 4}" text-anchor="middle" font-size="10" font-weight="bold" fill="#ffffff" font-family="sans-serif">${(node.data.index as number) + 1}</text>`;
+              }
+            }
+          }
+
+          // Legend if present (Common for all node types)
+          if (node.data.showLegend) {
+            const typeLabels: Record<string, string> = {
+              topEvent: 'Evento de Topo',
+              immediateCause: 'Causa Imediata',
+              intermediateCause: 'Causa Intermediária',
+              undevelopedEvent: 'Evento Não Desenvolvido',
+              basicCause: 'Causa Básica',
+              contributingFactor: 'Fator Contribuinte',
+              blockingAction: 'Ação de Bloqueio',
+              annotation: 'Anotação'
+            };
+            const typeLabel = typeLabels[node.type as string] || '';
+            
+            // Legend colors should match FTANodes.tsx
+            let legendBg = color;
+            let legendText = textColor;
+            let legendStroke = strokeColor;
+
+            if (node.type === 'blockingAction' || node.type === 'annotation') {
+              legendBg = '#27272a'; // zinc-800
+              legendText = '#ffffff';
+              legendStroke = '#18181b'; // zinc-900
+            }
+
+            // legend box is 140x24, positioned to the left of the node
+            // on canvas it's mr-6 (24px) away from node
+            const legendBoxW = 140;
+            const legendBoxH = 24;
+            const gap = 24;
+            const lineW = 16;
+            
+            const legendX = x - gap - lineW - legendBoxW;
+            const legendY = y + h/2 - legendBoxH/2;
+            
+            // Legend Box
+            svgContent += `<rect x="${legendX}" y="${legendY}" width="${legendBoxW}" height="${legendBoxH}" rx="8" fill="${legendBg}" stroke="${legendStroke}" stroke-width="2" />`;
+            svgContent += `<text x="${legendX + legendBoxW/2}" y="${legendY + 16}" text-anchor="middle" font-size="9" font-weight="900" fill="${legendText}" font-family="sans-serif" style="text-transform: uppercase;">${typeLabel}</text>`;
+            
+            // Line and Arrow
+            const lineStartX = legendX + legendBoxW;
+            const lineEndX = x;
+            const arrowY = y + h/2;
+            
+            svgContent += `<line x1="${lineStartX}" y1="${arrowY}" x2="${lineEndX - 6}" y2="${arrowY}" stroke="${legendBg}" stroke-width="2" />`;
+            // Arrow head (triangle) pointing to the node
+            svgContent += `<path d="M ${lineEndX - 6} ${arrowY - 4} L ${lineEndX} ${arrowY} L ${lineEndX - 6} ${arrowY + 4} Z" fill="${legendBg}" />`;
+          }
+        });
+
+        svgContent += '</svg>';
+        const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
+        dataUrl = URL.createObjectURL(blob);
+      }
       
       const link = document.createElement('a');
       link.download = `fta-export-${Date.now()}.${format}`;
@@ -1384,58 +1667,6 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
       console.error('Failed to copy:', err);
     }
   };
-  const exportDXF = () => {
-    const nodes = getNodes();
-    const edges = getEdges();
-    if (nodes.length === 0) return;
-
-    let dxfContent = `0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1015\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n`;
-
-    // Add nodes as rectangles (LWPOLYLINE)
-    nodes.forEach(node => {
-      const x = node.position.x;
-      const y = -node.position.y; // DXF Y is up
-      const w = node.measured?.width || 200;
-      const h = node.measured?.height || 80;
-
-      dxfContent += `0\nLWPOLYLINE\n100\nAcDbEntity\n8\nNodes\n100\nAcDbPolyline\n90\n4\n70\n1\n`;
-      // Vertex 1
-      dxfContent += `10\n${x}\n20\n${y}\n`;
-      // Vertex 2
-      dxfContent += `10\n${x + w}\n20\n${y}\n`;
-      // Vertex 3
-      dxfContent += `10\n${x + w}\n20\n${y - h}\n`;
-      // Vertex 4
-      dxfContent += `10\n${x}\n20\n${y - h}\n`;
-
-      // Add text label
-      const label = (node.data.label as string || '').replace(/\n/g, ' ');
-      dxfContent += `0\nTEXT\n100\nAcDbEntity\n8\nLabels\n100\nAcDbText\n10\n${x + 5}\n20\n${y - h / 2}\n40\n5.0\n1\n${label}\n`;
-    });
-
-    // Add edges as lines
-    edges.forEach(edge => {
-      const sourceNode = nodes.find(n => n.id === edge.source);
-      const targetNode = nodes.find(n => n.id === edge.target);
-      if (sourceNode && targetNode) {
-        const x1 = sourceNode.position.x + (sourceNode.measured?.width || 200) / 2;
-        const y1 = -sourceNode.position.y - (sourceNode.measured?.height || 80);
-        const x2 = targetNode.position.x + (targetNode.measured?.width || 200) / 2;
-        const y2 = -targetNode.position.y;
-
-        dxfContent += `0\nLINE\n100\nAcDbEntity\n8\nEdges\n100\nAcDbLine\n10\n${x1}\n20\n${y1}\n11\n${x2}\n21\n${y2}\n`;
-      }
-    });
-
-    dxfContent += `0\nENDSEC\n0\nEOF`;
-
-    const blob = new Blob([dxfContent], { type: 'application/dxf' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `fta-export-${Date.now()}.dxf`;
-    link.click();
-  };
-
   const handleFullAnalysis = async () => {
     if (nodes.length === 0) return;
     
@@ -1868,11 +2099,11 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
                 )}>
                   <ImageIcon className="w-4 h-4 text-emerald-500" /> Imagem JPG
                 </button>
-                <button onClick={exportDXF} className={cn(
+                <button onClick={() => exportImage('svg')} className={cn(
                   "w-full px-4 py-3 text-left text-sm flex items-center gap-3 transition-colors border-t",
                   isDarkMode ? "text-zinc-400 hover:bg-zinc-800 border-zinc-800" : "text-zinc-600 hover:bg-zinc-50 border-zinc-100"
                 )}>
-                  <LayoutTemplate className="w-4 h-4 text-amber-500" /> AutoCAD (DXF)
+                  <FileCode className="w-4 h-4 text-amber-500" /> Vetorizado (SVG)
                 </button>
               </div>
             </div>
