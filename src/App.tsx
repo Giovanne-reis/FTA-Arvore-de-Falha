@@ -464,6 +464,7 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
   const [dynamicSuggestions, setDynamicSuggestions] = useState<string[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [showGrid, setShowGrid] = useState(true);
+  const [snapToGrid, setSnapToGrid] = useState(true);
   const [showMiniMap, setShowMiniMap] = useState(true);
   const [interactionMode, setInteractionMode] = useState<'pan' | 'select'>('pan');
   const [addChildMenu, setAddChildMenu] = useState<{ parentId: string, x: number, y: number } | null>(null);
@@ -563,7 +564,7 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
 
     if (direction === 'horizontal') {
       const centers = selectedNodes.map(getCenter);
-      const avgCenterY = Math.round((centers.reduce((acc, c) => acc + c.y, 0) / selectedNodes.length) / 20) * 20;
+      const avgCenterY = Math.round((centers.reduce((acc, c) => acc + c.y, 0) / selectedNodes.length) / 10) * 10;
       
       setNodes(nds => nds.map(n => {
         if (!n.selected) return n;
@@ -572,7 +573,7 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
       }));
     } else {
       const centers = selectedNodes.map(getCenter);
-      const avgCenterX = Math.round((centers.reduce((acc, c) => acc + c.x, 0) / selectedNodes.length) / 20) * 20;
+      const avgCenterX = Math.round((centers.reduce((acc, c) => acc + c.x, 0) / selectedNodes.length) / 10) * 10;
       
       setNodes(nds => nds.map(n => {
         if (!n.selected) return n;
@@ -752,9 +753,6 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
     
     const position = { x: selectedNode.position.x + xOffset, y: selectedNode.position.y + 160 };
 
-    // Suggestions are leaves unless they are blocking actions
-    const isLeaf = type !== 'blockingAction';
-
     const newNode: Node = {
       id: newNodeId,
       type,
@@ -763,7 +761,7 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
         label,
         onOpenAddChildMenu,
         onToggleLegend,
-        isLeaf,
+        isLeaf: false,
       },
     };
 
@@ -1792,8 +1790,8 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
           nodeTypes={nodeTypes}
           defaultEdgeOptions={defaultEdgeOptions}
           fitView
-          snapToGrid={true}
-          snapGrid={[20, 20]}
+          snapToGrid={snapToGrid}
+          snapGrid={[10, 10]}
           onNodeDragStop={takeSnapshot}
           panOnDrag={interactionMode === 'pan'}
           selectionOnDrag={interactionMode === 'select'}
@@ -1948,7 +1946,8 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
               <button 
                 onClick={() => setInteractionMode('select')}
                 className={cn(
-                  "p-2 transition-colors",
+                  "p-2 transition-colors border-r",
+                  isDarkMode ? "border-zinc-800" : "border-zinc-100",
                   interactionMode === 'select' 
                     ? (isDarkMode ? "bg-indigo-900/40 text-indigo-400" : "bg-indigo-50 text-indigo-600") 
                     : (isDarkMode ? "hover:bg-zinc-800 text-zinc-400" : "hover:bg-zinc-50 text-zinc-600")
@@ -1956,6 +1955,18 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
                 title="Modo Selecionar (Seta)"
               >
                 <MousePointer className="w-4 h-4" />
+              </button>
+              <button 
+                onClick={() => setSnapToGrid(!snapToGrid)}
+                className={cn(
+                  "p-2 transition-colors",
+                  snapToGrid
+                    ? (isDarkMode ? "bg-emerald-900/40 text-emerald-400" : "bg-emerald-50 text-emerald-600") 
+                    : (isDarkMode ? "hover:bg-zinc-800 text-zinc-400" : "hover:bg-zinc-50 text-zinc-600")
+                )}
+                title={snapToGrid ? "Desativar Snap (Pular Grid)" : "Ativar Snap (Grudar no Grid)"}
+              >
+                <Grid className="w-4 h-4" />
               </button>
             </div>
 
@@ -2157,6 +2168,25 @@ export const Flow = ({ isDarkMode, setIsDarkMode }: { isDarkMode: boolean, setIs
                 {nodes.filter(n => n.selected).length + edges.filter(e => e.selected).length} itens selecionados
               </span>
               <div className="w-px h-4 bg-zinc-200" />
+              
+              <button 
+                onClick={() => alignNodes('vertical')}
+                className="flex items-center gap-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white px-4 py-2 rounded-xl transition-all text-sm font-bold"
+                title="Alinhar ao Centro Vertical (X)"
+              >
+                <AlignCenter className="w-4 h-4" /> ALINHAR CENTRO
+              </button>
+
+              <button 
+                onClick={() => alignNodes('horizontal')}
+                className="flex items-center gap-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white px-4 py-2 rounded-xl transition-all text-sm font-bold"
+                title="Alinhar ao Centro Horizontal (Y)"
+              >
+                <AlignCenter className="w-4 h-4 rotate-90" /> ALINHAR LINHA
+              </button>
+
+              <div className="w-px h-4 bg-zinc-200" />
+              
               <button 
                 onClick={deleteSelectedElements}
                 className="flex items-center gap-2 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white px-4 py-2 rounded-xl transition-all text-sm font-bold"
